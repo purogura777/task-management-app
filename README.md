@@ -29,7 +29,7 @@ npm run dev
 
 ## デプロイ
 - GitHub: https://github.com/purogura777/task-management-app
-- Vercel: https://task-management-knzqqsodp-satsukis-projects-d3a01bbe.vercel.app
+- Vercel: https://task-management-js8iigp6z-satsukis-projects-d3a01bbe.vercel.app
 
 ## 更新日時
-2025-01-04 14:20:00 - Vercelデプロイ修正版 
+2025-01-04 14:30:00 - 強制再デプロイ版（キャッシュクリア） 
