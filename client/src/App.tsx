@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
-import { CssBaseline, Box } from '@mui/material';
+import { CssBaseline, Box, Typography, Button } from '@mui/material';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { Toaster } from 'react-hot-toast';
-import { motion, AnimatePresence } from 'framer-motion';
 
 // テーマ
 import { lightTheme, darkTheme } from './theme';
@@ -51,33 +50,30 @@ function AppContent() {
             <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
               <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
               <Box
-                component={motion.main}
                 sx={{
                   flexGrow: 1,
-                  pt: '80px', // ヘッダーの高さ分のパディング
+                  pt: '80px',
                   backgroundColor: 'background.default',
                   transition: 'margin-left 0.3s ease-in-out',
-                  marginLeft: sidebarOpen ? '240px' : '64px', // サイドバーの幅を調整
-                  minHeight: 'calc(100vh - 80px)', // ヘッダーの高さを引く
+                  marginLeft: sidebarOpen ? '240px' : '64px',
+                  minHeight: 'calc(100vh - 80px)',
                   overflow: 'auto',
-                  paddingLeft: '24px', // 左側のパディングを追加
-                  paddingRight: '24px', // 右側のパディングを追加
+                  paddingLeft: '24px',
+                  paddingRight: '24px',
                 }}
               >
-                <AnimatePresence mode="wait">
-                  <Routes>
-                    <Route path="/" element={<Dashboard />} />
-                    <Route path="/kanban" element={<KanbanBoard />} />
-                    <Route path="/calendar" element={<CalendarView />} />
-                    <Route path="/timeline" element={<TimelineView />} />
-                    <Route path="/list" element={<ListView />} />
-                    <Route path="/task/new" element={<TaskForm />} />
-                    <Route path="/task/edit/:id" element={<TaskForm />} />
-                    <Route path="/settings" element={<Settings />} />
-                    <Route path="/profile" element={<Profile />} />
-                    <Route path="/login" element={<Login />} />
-                  </Routes>
-                </AnimatePresence>
+                <Routes>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/kanban" element={<KanbanBoard />} />
+                  <Route path="/calendar" element={<CalendarView />} />
+                  <Route path="/timeline" element={<TimelineView />} />
+                  <Route path="/list" element={<ListView />} />
+                  <Route path="/task/new" element={<TaskForm />} />
+                  <Route path="/task/edit/:id" element={<TaskForm />} />
+                  <Route path="/settings" element={<Settings />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/login" element={<Login />} />
+                </Routes>
               </Box>
             </Box>
           </Box>
