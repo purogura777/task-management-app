@@ -1,4 +1,0 @@
-[33m6e0114b[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m)[m Fix Vercel build configuration - simplify install and build commands
-[33mc364ac9[m Fix Vercel deployment configuration for proper component rendering
-[33m4301bcb[m Update README with current project info
-[33m0f494c7[m Initial commit: Task management app with modern UI
