@@ -38,6 +38,9 @@ function AppContent() {
   const { isDarkMode } = useTheme();
   const theme = isDarkMode ? darkTheme : lightTheme;
 
+  // デバッグ用のログ
+  console.log('AppContent rendered', { sidebarOpen, isDarkMode });
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -96,6 +99,8 @@ function AppContent() {
 }
 
 function App() {
+  console.log('App component rendered');
+  
   return (
     <QueryClientProvider client={queryClient}>
       <CustomThemeProvider>
