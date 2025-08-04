@@ -10,6 +10,21 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true
-  }
+    sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          mui: ['@mui/material', '@mui/icons-material'],
+          router: ['react-router-dom'],
+          animation: ['framer-motion', 'react-beautiful-dnd'],
+          calendar: ['@fullcalendar/react', '@fullcalendar/daygrid'],
+          utils: ['date-fns', 'react-hot-toast']
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000
+  },
+  base: '/',
+  publicDir: 'public'
 }) 
