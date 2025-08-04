@@ -32,4 +32,4 @@ npm run dev
 - Vercel: https://task-management-knzqqsodp-satsukis-projects-d3a01bbe.vercel.app
 
 ## 更新日時
-$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") 
+2025-01-04 14:20:00 - Vercelデプロイ修正版 
