@@ -20,6 +20,7 @@ import { ja } from 'date-fns/locale';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
+import { saveTask, updateTask } from '../firebase';
 
 interface Task {
   id: string;
@@ -28,6 +29,7 @@ interface Task {
   status: 'todo' | 'inProgress' | 'done';
   priority: 'low' | 'medium' | 'high';
   dueDate: string;
+  assignee: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -51,7 +53,7 @@ const TaskForm: React.FC = () => {
 
   useEffect(() => {
     if (isEditing && user) {
-      // 既存のタスクを読み込み
+      // 既存のタスクを読み込み（Firebaseから取得する必要がありますが、簡易的にローカルストレージを使用）
       const savedTasks = localStorage.getItem(`tasks_${user.id}`);
       if (savedTasks) {
         const tasks: Task[] = JSON.parse(savedTasks);
@@ -87,9 +89,6 @@ const TaskForm: React.FC = () => {
     }
 
     try {
-      const savedTasks = localStorage.getItem(`tasks_${user.id}`);
-      const tasks: Task[] = savedTasks ? JSON.parse(savedTasks) : [];
-
       const taskData: Task = {
         id: isEditing ? id! : Date.now().toString(),
         title: formData.title,
@@ -97,22 +96,21 @@ const TaskForm: React.FC = () => {
         status: formData.status,
         priority: formData.priority,
         dueDate: dueDate.toISOString().split('T')[0],
-        createdAt: isEditing ? tasks.find(t => t.id === id)?.createdAt || new Date().toISOString() : new Date().toISOString(),
+        assignee: user.name || '未設定',
+        createdAt: isEditing ? new Date().toISOString() : new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
 
-      let newTasks: Task[];
       if (isEditing) {
-        newTasks = tasks.map(task => task.id === id ? taskData : task);
+        await updateTask(user.id, taskData.id, taskData);
       } else {
-        newTasks = [...tasks, taskData];
+        await saveTask(user.id, taskData);
       }
-
-      localStorage.setItem(`tasks_${user.id}`, JSON.stringify(newTasks));
       
       toast.success(isEditing ? 'タスクを更新しました' : 'タスクを作成しました');
       navigate('/');
     } catch (error) {
+      console.error('タスク保存エラー:', error);
       setError('タスクの保存に失敗しました');
       toast.error('タスクの保存に失敗しました');
     } finally {

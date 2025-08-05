@@ -37,7 +37,6 @@ function AppContent() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { isDarkMode } = useTheme();
   const { user, isLoading } = useAuth();
-  const theme = isDarkMode ? darkTheme : lightTheme;
 
   // デバッグ用のログ
   console.log('AppContent rendered', { sidebarOpen, isDarkMode, user, isLoading });
@@ -55,20 +54,16 @@ function AppContent() {
   // ローディング中
   if (isLoading) {
     return (
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-          <Typography variant="h6">読み込み中...</Typography>
-        </Box>
-      </ThemeProvider>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <Typography variant="h6">読み込み中...</Typography>
+      </Box>
     );
   }
 
   // ユーザーがログインしていない場合はログイン画面を表示
   if (!user) {
     return (
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
+      <>
         <Router>
           <Routes>
             <Route path="*" element={<Login />} />
@@ -94,14 +89,13 @@ function AppContent() {
           gutter={8}
           reverseOrder={false}
         />
-      </ThemeProvider>
+      </>
     );
   }
 
   // ログイン済みの場合はメインアプリを表示
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
+    <>
       <Router>
         <Box sx={{ display: 'flex', minHeight: '100vh' }}>
           <Sidebar open={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
@@ -159,7 +153,7 @@ function AppContent() {
         gutter={8}
         reverseOrder={false}
       />
-    </ThemeProvider>
+    </>
   );
 }
 
