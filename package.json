@@ -7,8 +7,7 @@
     "dev": "cd client && npm run dev",
     "build": "cd client && npm run build",
     "install-all": "npm install && cd client && npm install",
-    "start": "cd client && npm run dev",
-    "vercel-build": "cd client && npm install && npm run build"
+    "start": "cd client && npm run dev"
   },
   "keywords": ["task-management", "pwa", "encryption", "serverless"],
   "author": "",

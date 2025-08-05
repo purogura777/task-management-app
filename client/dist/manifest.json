@@ -1,29 +1,16 @@
 {
-  "short_name": "タスク管理",
-  "name": "タスク管理アプリ",
-  "description": "暗号化通信対応の使いやすいタスク管理アプリ",
+  "name": "TaskFlow - タスク管理アプリ",
+  "short_name": "TaskFlow",
+  "description": "暗号化通信対応のタスク管理アプリ",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#6366f1",
   "icons": [
     {
-      "src": "favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
-    },
-    {
-      "src": "logo192.png",
-      "type": "image/png",
-      "sizes": "192x192"
-    },
-    {
-      "src": "logo512.png",
-      "type": "image/png",
-      "sizes": "512x512"
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%236366f1' rx='20'/><text x='50' y='65' text-anchor='middle' font-size='50' fill='white'>📋</text></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml"
     }
-  ],
-  "start_url": ".",
-  "display": "standalone",
-  "theme_color": "#1976d2",
-  "background_color": "#ffffff",
-  "orientation": "portrait",
-  "scope": "/",
-  "lang": "ja"
+  ]
 } 

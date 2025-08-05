@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
-import { CssBaseline, Box } from '@mui/material';
+import { CssBaseline, Box, Typography } from '@mui/material';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { Toaster } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -21,7 +21,7 @@ import TaskForm from './components/TaskForm';
 import Settings from './components/Settings';
 import Login from './components/Login';
 import Profile from './components/Profile';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider as CustomThemeProvider, useTheme } from './contexts/ThemeContext';
 
 const queryClient = new QueryClient({
@@ -36,51 +36,33 @@ const queryClient = new QueryClient({
 function AppContent() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { isDarkMode } = useTheme();
+  const { user, isLoading } = useAuth();
   const theme = isDarkMode ? darkTheme : lightTheme;
 
   // デバッグ用のログ
-  console.log('AppContent rendered', { sidebarOpen, isDarkMode });
+  console.log('AppContent rendered', { sidebarOpen, isDarkMode, user, isLoading });
 
-  return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <AuthProvider>
+  // ローディング中
+  if (isLoading) {
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+          <Typography variant="h6">読み込み中...</Typography>
+        </Box>
+      </ThemeProvider>
+    );
+  }
+
+  // ユーザーがログインしていない場合はログイン画面を表示
+  if (!user) {
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
         <Router>
-          <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-            <Sidebar open={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
-            <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-              <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
-              <Box
-                component={motion.main}
-                sx={{
-                  flexGrow: 1,
-                  pt: '80px', // ヘッダーの高さ分のパディング
-                  backgroundColor: 'background.default',
-                  transition: 'margin-left 0.3s ease-in-out',
-                  marginLeft: sidebarOpen ? '240px' : '64px', // サイドバーの幅を調整
-                  minHeight: 'calc(100vh - 80px)', // ヘッダーの高さを引く
-                  overflow: 'auto',
-                  paddingLeft: '24px', // 左側のパディングを追加
-                  paddingRight: '24px', // 右側のパディングを追加
-                }}
-              >
-                <AnimatePresence mode="wait">
-                  <Routes>
-                    <Route path="/" element={<Dashboard />} />
-                    <Route path="/kanban" element={<KanbanBoard />} />
-                    <Route path="/calendar" element={<CalendarView />} />
-                    <Route path="/timeline" element={<TimelineView />} />
-                    <Route path="/list" element={<ListView />} />
-                    <Route path="/task/new" element={<TaskForm />} />
-                    <Route path="/task/edit/:id" element={<TaskForm />} />
-                    <Route path="/settings" element={<Settings />} />
-                    <Route path="/profile" element={<Profile />} />
-                    <Route path="/login" element={<Login />} />
-                  </Routes>
-                </AnimatePresence>
-              </Box>
-            </Box>
-          </Box>
+          <Routes>
+            <Route path="*" element={<Login />} />
+          </Routes>
         </Router>
         <Toaster
           position="top-right"
@@ -93,7 +75,62 @@ function AppContent() {
             },
           }}
         />
-      </AuthProvider>
+      </ThemeProvider>
+    );
+  }
+
+  // ログイン済みの場合はメインアプリを表示
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Router>
+        <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+          <Sidebar open={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
+          <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+            <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
+            <Box
+              component={motion.main}
+              sx={{
+                flexGrow: 1,
+                pt: '80px', // ヘッダーの高さ分のパディング
+                backgroundColor: 'background.default',
+                transition: 'margin-left 0.3s ease-in-out',
+                marginLeft: sidebarOpen ? '240px' : '64px', // サイドバーの幅を調整
+                minHeight: 'calc(100vh - 80px)', // ヘッダーの高さを引く
+                overflow: 'auto',
+                paddingLeft: '24px', // 左側のパディングを追加
+                paddingRight: '24px', // 右側のパディングを追加
+              }}
+            >
+              <AnimatePresence mode="wait">
+                <Routes>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/kanban" element={<KanbanBoard />} />
+                  <Route path="/calendar" element={<CalendarView />} />
+                  <Route path="/timeline" element={<TimelineView />} />
+                  <Route path="/list" element={<ListView />} />
+                  <Route path="/task/new" element={<TaskForm />} />
+                  <Route path="/task/edit/:id" element={<TaskForm />} />
+                  <Route path="/settings" element={<Settings />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/login" element={<Login />} />
+                </Routes>
+              </AnimatePresence>
+            </Box>
+          </Box>
+        </Box>
+      </Router>
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+            borderRadius: '8px',
+          },
+        }}
+      />
     </ThemeProvider>
   );
 }
@@ -104,7 +141,9 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <CustomThemeProvider>
-        <AppContent />
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
       </CustomThemeProvider>
     </QueryClientProvider>
   );

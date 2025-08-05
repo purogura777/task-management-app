@@ -12,6 +12,9 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: true,
     rollupOptions: {
+      input: {
+        main: './public/index.html'
+      },
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom'],
@@ -25,6 +28,7 @@ export default defineConfig({
     },
     chunkSizeWarningLimit: 1000
   },
-  base: '/',
-  publicDir: 'public'
+  base: '',
+  publicDir: 'public',
+  root: '.'
 }) 

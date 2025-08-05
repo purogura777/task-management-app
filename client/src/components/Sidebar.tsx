@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Drawer,
   List,
@@ -44,6 +44,8 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
   const location = useLocation();
   const { user } = useAuth();
   const { isDarkMode, toggleTheme } = useTheme();
+  const [currentProject, setCurrentProject] = useState<string | null>(null);
+  const [currentWorkspace, setCurrentWorkspace] = useState<string | null>(null);
 
   const menuItems = [
     {
@@ -121,10 +123,34 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
     workspaceItems[2].badge = calculateTaskCount('priority', 'high');
   };
 
-  // コンポーネントマウント時にバッジ数を計算
+  // コンポーネントマウント時にバッジ数を計算し、現在の選択状態を復元
   React.useEffect(() => {
     updateBadgeCounts();
+    
+    // 現在の選択状態を復元
+    const savedProject = localStorage.getItem('currentProject');
+    const savedWorkspace = localStorage.getItem('currentWorkspace');
+    
+    if (savedProject) {
+      setCurrentProject(savedProject);
+    }
+    if (savedWorkspace) {
+      setCurrentWorkspace(savedWorkspace);
+    }
   }, []);
+
+  // 選択状態の変更を監視
+  React.useEffect(() => {
+    const savedProject = localStorage.getItem('currentProject');
+    const savedWorkspace = localStorage.getItem('currentWorkspace');
+    
+    if (savedProject !== currentProject) {
+      setCurrentProject(savedProject);
+    }
+    if (savedWorkspace !== currentWorkspace) {
+      setCurrentWorkspace(savedWorkspace);
+    }
+  }, []); // 依存配列を空にして、マウント時のみ実行
 
   const handleNavigation = (path: string) => {
     navigate(path);
@@ -133,6 +159,10 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
   const handleProjectClick = (projectName: string) => {
     // プロジェクトをクリックした時の処理
     console.log(`プロジェクト "${projectName}" が選択されました`);
+    
+    // 現在の選択状態を更新
+    setCurrentProject(projectName);
+    setCurrentWorkspace(null);
     
     // プロジェクト固有のタスクをフィルタリング
     const allTasks = JSON.parse(localStorage.getItem('tasks') || '[]');
@@ -157,8 +187,12 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
     localStorage.setItem('currentProject', projectName);
     localStorage.removeItem('currentWorkspace'); // ワークスペース選択をクリア
     
-    // ダッシュボードにリダイレクト
-    navigate('/');
+    // 状態を即座に更新
+    setCurrentProject(projectName);
+    // 強制的に再レンダリング
+    setTimeout(() => {
+      window.location.reload();
+    }, 100);
     
     // トースト通知を表示
     toast.success(`${projectName}のタスクを表示中`);
@@ -167,6 +201,10 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
   const handleWorkspaceClick = (workspaceName: string) => {
     // ワークスペースをクリックした時の処理
     console.log(`ワークスペース "${workspaceName}" が選択されました`);
+    
+    // 現在の選択状態を更新
+    setCurrentWorkspace(workspaceName);
+    setCurrentProject(null);
     
     // ワークスペース固有のタスクをフィルタリング
     const allTasks = JSON.parse(localStorage.getItem('tasks') || '[]');
@@ -191,8 +229,12 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
     localStorage.setItem('currentWorkspace', workspaceName);
     localStorage.removeItem('currentProject'); // プロジェクト選択をクリア
     
-    // ダッシュボードにリダイレクト
-    navigate('/');
+    // 状態を即座に更新
+    setCurrentWorkspace(workspaceName);
+    // 強制的に再レンダリング
+    setTimeout(() => {
+      window.location.reload();
+    }, 100);
     
     // トースト通知を表示
     toast.success(`${workspaceName}のタスクを表示中`);
@@ -355,7 +397,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
           <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
             <ListItemButton
               onClick={() => handleWorkspaceClick(item.text)}
-              selected={location.pathname === item.path}
+              selected={currentWorkspace === item.text}
               sx={{
                 borderRadius: 2,
                 minHeight: 48,
@@ -374,7 +416,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
               <ListItemIcon
                 sx={{
                   minWidth: 40,
-                  color: location.pathname === item.path ? 'white' : 'inherit',
+                  color: currentWorkspace === item.text ? 'white' : 'inherit',
                 }}
               >
                 {item.icon}
@@ -390,7 +432,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
                     primary={item.text}
                     primaryTypographyProps={{
                       fontSize: '0.875rem',
-                      fontWeight: location.pathname === item.path ? 600 : 500,
+                      fontWeight: currentWorkspace === item.text ? 600 : 500,
                     }}
                   />
                   {item.badge && (
@@ -399,8 +441,8 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
                       color="error"
                       sx={{
                         '& .MuiBadge-badge': {
-                          backgroundColor: location.pathname === item.path ? 'white' : 'primary.main',
-                          color: location.pathname === item.path ? 'primary.main' : 'white',
+                          backgroundColor: currentWorkspace === item.text ? 'white' : 'primary.main',
+                          color: currentWorkspace === item.text ? 'primary.main' : 'white',
                         },
                       }}
                     />
@@ -431,6 +473,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
           <ListItem disablePadding>
             <ListItemButton
               onClick={() => handleProjectClick('個人プロジェクト')}
+              selected={currentProject === '個人プロジェクト'}
               sx={{
                 minHeight: 48,
                 px: 2,
@@ -473,6 +516,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
           <ListItem disablePadding>
             <ListItemButton
               onClick={() => handleProjectClick('仕事')}
+              selected={currentProject === '仕事'}
               sx={{
                 minHeight: 48,
                 px: 2,
@@ -515,6 +559,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
           <ListItem disablePadding>
             <ListItemButton
               onClick={() => handleProjectClick('学習')}
+              selected={currentProject === '学習'}
               sx={{
                 minHeight: 48,
                 px: 2,

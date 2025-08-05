@@ -44,6 +44,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         localStorage.removeItem('taskAppUser');
       }
     }
+    // デフォルトでログイン状態にしない（ログイン画面を表示）
     setIsLoading(false);
   }, []);
 
