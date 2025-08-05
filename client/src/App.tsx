@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import { CssBaseline, Box, Typography } from '@mui/material';
 import { QueryClient, QueryClientProvider } from 'react-query';
-import { Toaster } from 'react-hot-toast';
+import { Toaster, toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // テーマ
@@ -42,6 +42,16 @@ function AppContent() {
   // デバッグ用のログ
   console.log('AppContent rendered', { sidebarOpen, isDarkMode, user, isLoading });
 
+  // 通知をクリアする関数
+  const clearAllToasts = () => {
+    toast.dismiss();
+  };
+
+  // コンポーネントがマウントされたときに通知をクリア
+  useEffect(() => {
+    clearAllToasts();
+  }, []);
+
   // ローディング中
   if (isLoading) {
     return (
@@ -67,19 +77,22 @@ function AppContent() {
         <Toaster
           position="top-right"
           toastOptions={{
-            duration: 3000,
+            duration: 2000,
             style: {
               background: '#363636',
               color: '#fff',
               borderRadius: '8px',
               maxWidth: '400px',
+              zIndex: 9999,
             },
           }}
           containerStyle={{
             top: 20,
             right: 20,
+            zIndex: 9999,
           }}
           gutter={8}
+          reverseOrder={false}
         />
       </ThemeProvider>
     );
@@ -129,19 +142,22 @@ function AppContent() {
       <Toaster
         position="top-right"
         toastOptions={{
-          duration: 3000,
+          duration: 2000,
           style: {
             background: '#363636',
             color: '#fff',
             borderRadius: '8px',
             maxWidth: '400px',
+            zIndex: 9999,
           },
         }}
         containerStyle={{
           top: 20,
           right: 20,
+          zIndex: 9999,
         }}
         gutter={8}
+        reverseOrder={false}
       />
     </ThemeProvider>
   );
