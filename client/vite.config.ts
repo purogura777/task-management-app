@@ -23,8 +23,7 @@ export default defineConfig({
           router: ['react-router-dom'],
           animation: ['framer-motion', 'react-beautiful-dnd'],
           calendar: ['@fullcalendar/react', '@fullcalendar/daygrid'],
-          utils: ['date-fns', 'react-hot-toast'],
-          firebase: ['firebase']
+          utils: ['date-fns', 'react-hot-toast']
         }
       }
     },
@@ -45,6 +44,15 @@ export default defineConfig({
     }
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', '@mui/material', '@mui/icons-material']
+    include: ['react', 'react-dom', '@mui/material', '@mui/icons-material'],
+    exclude: ['firebase', 'firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage']
+  },
+  resolve: {
+    alias: {
+      'firebase/app': 'firebase/app',
+      'firebase/auth': 'firebase/auth',
+      'firebase/firestore': 'firebase/firestore',
+      'firebase/storage': 'firebase/storage'
+    }
   }
 }) 

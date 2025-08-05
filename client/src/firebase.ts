@@ -26,34 +26,54 @@ export const storage = getStorage(app);
 
 // リアルタイムリスナーを設定する関数
 export const setupRealtimeListener = (userId: string, callback: (tasks: any[]) => void) => {
-  const tasksRef = collection(db, 'users', userId, 'tasks');
-  const q = query(tasksRef, orderBy('createdAt', 'desc'));
-  
-  return onSnapshot(q, (snapshot) => {
-    const tasks: any[] = [];
-    snapshot.forEach((doc) => {
-      tasks.push({ id: doc.id, ...doc.data() });
+  try {
+    const tasksRef = collection(db, 'users', userId, 'tasks');
+    const q = query(tasksRef, orderBy('createdAt', 'desc'));
+    
+    return onSnapshot(q, (snapshot) => {
+      const tasks: any[] = [];
+      snapshot.forEach((doc) => {
+        tasks.push({ id: doc.id, ...doc.data() });
+      });
+      callback(tasks);
     });
-    callback(tasks);
-  });
+  } catch (error) {
+    console.error('Firebaseリスナーの設定に失敗しました:', error);
+    return () => {};
+  }
 };
 
 // タスクを保存する関数
 export const saveTask = async (userId: string, task: any) => {
-  const taskRef = doc(db, 'users', userId, 'tasks', task.id);
-  await setDoc(taskRef, task);
+  try {
+    const taskRef = doc(db, 'users', userId, 'tasks', task.id);
+    await setDoc(taskRef, task);
+  } catch (error) {
+    console.error('タスクの保存に失敗しました:', error);
+    throw error;
+  }
 };
 
 // タスクを更新する関数
 export const updateTask = async (userId: string, taskId: string, updates: any) => {
-  const taskRef = doc(db, 'users', userId, 'tasks', taskId);
-  await updateDoc(taskRef, updates);
+  try {
+    const taskRef = doc(db, 'users', userId, 'tasks', taskId);
+    await updateDoc(taskRef, updates);
+  } catch (error) {
+    console.error('タスクの更新に失敗しました:', error);
+    throw error;
+  }
 };
 
 // タスクを削除する関数
 export const deleteTask = async (userId: string, taskId: string) => {
-  const taskRef = doc(db, 'users', userId, 'tasks', taskId);
-  await deleteDoc(taskRef);
+  try {
+    const taskRef = doc(db, 'users', userId, 'tasks', taskId);
+    await deleteDoc(taskRef);
+  } catch (error) {
+    console.error('タスクの削除に失敗しました:', error);
+    throw error;
+  }
 };
 
 export default app; 
