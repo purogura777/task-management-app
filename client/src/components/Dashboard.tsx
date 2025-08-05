@@ -90,6 +90,57 @@ const Dashboard: React.FC = () => {
       setCurrentFilter(currentProject || currentWorkspace || '');
     }
 
+    // テスト用：初回アクセス時にサンプルデータを追加
+    const hasVisited = localStorage.getItem('hasVisited');
+    if (!hasVisited) {
+      const sampleTasks = [
+        {
+          id: '1',
+          title: 'プロジェクト計画の作成',
+          description: '新しいプロジェクトの計画書を作成する',
+          status: 'todo' as const,
+          priority: 'high' as const,
+          dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          assignee: user.name || '未設定',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          id: '2',
+          title: 'チームミーティング',
+          description: '週次チームミーティングの準備',
+          status: 'inProgress' as const,
+          priority: 'medium' as const,
+          dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          assignee: user.name || '未設定',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          id: '3',
+          title: 'ドキュメントの更新',
+          description: '技術文書の最新版に更新',
+          status: 'done' as const,
+          priority: 'low' as const,
+          dueDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          assignee: user.name || '未設定',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }
+      ];
+      
+      // サンプルデータを保存
+      sampleTasks.forEach(task => {
+        const savedTasks = localStorage.getItem(`tasks_${user.id}`);
+        const tasks = savedTasks ? JSON.parse(savedTasks) : [];
+        tasks.push(task);
+        localStorage.setItem(`tasks_${user.id}`, JSON.stringify(tasks));
+      });
+      
+      localStorage.setItem('hasVisited', 'true');
+      setTasks(sampleTasks);
+    }
+
     return () => unsubscribe();
   }, [user?.id]);
 

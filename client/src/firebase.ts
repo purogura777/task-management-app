@@ -4,6 +4,8 @@ import { getFirestore, onSnapshot, collection, doc, setDoc, updateDoc, deleteDoc
 import { getStorage } from 'firebase/storage';
 
 // Firebase設定 - 実際のプロジェクトの設定に置き換えてください
+// Firebase Console (https://console.firebase.google.com/) でプロジェクトを作成し、
+// プロジェクト設定 > 全般 > マイアプリ > Webアプリを追加して取得した設定を以下に貼り付けてください
 const firebaseConfig = {
   apiKey: "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
   authDomain: "task-management-app-xxxxx.firebaseapp.com",
@@ -29,6 +31,20 @@ export const storage = getStorage(app);
 export const setupRealtimeListener = (userId: string, callback: (tasks: any[]) => void) => {
   try {
     console.log('Firebaseリスナーを設定中...', userId);
+    
+    // Firebaseが設定されていない場合はローカルストレージを使用
+    if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
+      console.log('Firebase設定がダミーのため、ローカルストレージを使用します');
+      const savedTasks = localStorage.getItem(`tasks_${userId}`);
+      if (savedTasks) {
+        const tasks = JSON.parse(savedTasks);
+        callback(tasks);
+      } else {
+        callback([]);
+      }
+      return () => {};
+    }
+    
     const tasksRef = collection(db, 'users', userId, 'tasks');
     const q = query(tasksRef, orderBy('createdAt', 'desc'));
     
@@ -64,6 +80,17 @@ export const setupRealtimeListener = (userId: string, callback: (tasks: any[]) =
 export const saveTask = async (userId: string, task: any) => {
   try {
     console.log('タスクを保存中...', task);
+    
+    // Firebaseが設定されていない場合はローカルストレージのみ使用
+    if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
+      console.log('Firebase設定がダミーのため、ローカルストレージに保存します');
+      const savedTasks = localStorage.getItem(`tasks_${userId}`);
+      const tasks = savedTasks ? JSON.parse(savedTasks) : [];
+      tasks.push(task);
+      localStorage.setItem(`tasks_${userId}`, JSON.stringify(tasks));
+      return;
+    }
+    
     const taskRef = doc(db, 'users', userId, 'tasks', task.id);
     await setDoc(taskRef, task);
     console.log('タスク保存成功');
@@ -88,6 +115,21 @@ export const saveTask = async (userId: string, task: any) => {
 export const updateTask = async (userId: string, taskId: string, updates: any) => {
   try {
     console.log('タスクを更新中...', taskId, updates);
+    
+    // Firebaseが設定されていない場合はローカルストレージのみ使用
+    if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
+      console.log('Firebase設定がダミーのため、ローカルストレージを更新します');
+      const savedTasks = localStorage.getItem(`tasks_${userId}`);
+      if (savedTasks) {
+        const tasks = JSON.parse(savedTasks);
+        const updatedTasks = tasks.map((task: any) => 
+          task.id === taskId ? { ...task, ...updates } : task
+        );
+        localStorage.setItem(`tasks_${userId}`, JSON.stringify(updatedTasks));
+      }
+      return;
+    }
+    
     const taskRef = doc(db, 'users', userId, 'tasks', taskId);
     await updateDoc(taskRef, updates);
     console.log('タスク更新成功');
@@ -120,6 +162,19 @@ export const updateTask = async (userId: string, taskId: string, updates: any) =
 export const deleteTask = async (userId: string, taskId: string) => {
   try {
     console.log('タスクを削除中...', taskId);
+    
+    // Firebaseが設定されていない場合はローカルストレージのみ使用
+    if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
+      console.log('Firebase設定がダミーのため、ローカルストレージから削除します');
+      const savedTasks = localStorage.getItem(`tasks_${userId}`);
+      if (savedTasks) {
+        const tasks = JSON.parse(savedTasks);
+        const filteredTasks = tasks.filter((task: any) => task.id !== taskId);
+        localStorage.setItem(`tasks_${userId}`, JSON.stringify(filteredTasks));
+      }
+      return;
+    }
+    
     const taskRef = doc(db, 'users', userId, 'tasks', taskId);
     await deleteDoc(taskRef);
     console.log('タスク削除成功');
