@@ -28,7 +28,8 @@ export default defineConfig({
         }
       }
     },
-    chunkSizeWarningLimit: 1000
+    chunkSizeWarningLimit: 1000,
+    target: 'es2015'
   },
   base: '',
   publicDir: 'public',
@@ -42,5 +43,8 @@ export default defineConfig({
         jsx: 'react-jsx'
       }
     }
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom', '@mui/material', '@mui/icons-material']
   }
 }) 
