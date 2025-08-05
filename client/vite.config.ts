@@ -35,5 +35,12 @@ export default defineConfig({
   root: '.',
   define: {
     'process.env.NODE_ENV': '"production"'
+  },
+  esbuild: {
+    tsconfigRaw: {
+      compilerOptions: {
+        jsx: 'react-jsx'
+      }
+    }
   }
 }) 
