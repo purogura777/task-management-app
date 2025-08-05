@@ -1,0 +1,12 @@
+{
+  "cursor.realtime.enabled": true,
+  "cursor.realtime.autoJoin": true,
+  "cursor.realtime.showPresence": true,
+  "cursor.realtime.showCursors": true,
+  "cursor.realtime.showNames": true,
+  "cursor.realtime.showAvatars": true,
+  "files.autoSave": "afterDelay",
+  "files.autoSaveDelay": 1000,
+  "git.autofetch": true,
+  "git.autofetchPeriod": 180
+} 

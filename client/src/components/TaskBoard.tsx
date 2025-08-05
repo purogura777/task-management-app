@@ -18,6 +18,7 @@ import {
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { setupRealtimeListener, updateTask } from '../firebase';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 
@@ -38,56 +39,18 @@ const TaskBoard: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
 
   useEffect(() => {
-    // ローカルストレージからタスクを読み込み
-    const savedTasks = localStorage.getItem(`tasks_${user?.id}`);
-    if (savedTasks) {
-      setTasks(JSON.parse(savedTasks));
-    } else {
-      // デモデータ
-      const demoTasks: Task[] = [
-        {
-          id: '1',
-          title: 'プロジェクト計画書の作成',
-          description: '新規プロジェクトの計画書を作成する',
-          status: 'todo',
-          priority: 'high',
-          dueDate: '2024-01-15',
-          createdAt: '2024-01-01T10:00:00Z',
-          updatedAt: '2024-01-01T10:00:00Z',
-        },
-        {
-          id: '2',
-          title: 'チームミーティング',
-          description: '週次チームミーティングの準備',
-          status: 'inProgress',
-          priority: 'medium',
-          dueDate: '2024-01-10',
-          createdAt: '2024-01-01T09:00:00Z',
-          updatedAt: '2024-01-01T09:00:00Z',
-        },
-        {
-          id: '3',
-          title: 'コードレビュー',
-          description: 'プルリクエストのレビューを完了する',
-          status: 'done',
-          priority: 'low',
-          dueDate: '2024-01-08',
-          createdAt: '2024-01-01T08:00:00Z',
-          updatedAt: '2024-01-01T08:00:00Z',
-        },
-      ];
-      setTasks(demoTasks);
-      localStorage.setItem(`tasks_${user?.id}`, JSON.stringify(demoTasks));
-    }
+    if (!user?.id) return;
+
+    // Firebaseのリアルタイムリスナーを設定
+    const unsubscribe = setupRealtimeListener(user.id, (firebaseTasks) => {
+      setTasks(firebaseTasks);
+    });
+
+    return () => unsubscribe();
   }, [user?.id]);
 
-  const saveTasks = (newTasks: Task[]) => {
-    setTasks(newTasks);
-    localStorage.setItem(`tasks_${user?.id}`, JSON.stringify(newTasks));
-  };
-
-  const handleDragEnd = (result: any) => {
-    if (!result.destination) return;
+  const handleDragEnd = async (result: any) => {
+    if (!result.destination || !user?.id) return;
 
     const { source, destination } = result;
     const newTasks = Array.from(tasks);
@@ -96,7 +59,15 @@ const TaskBoard: React.FC = () => {
     reorderedTask.updatedAt = new Date().toISOString();
     newTasks.splice(destination.index, 0, reorderedTask);
 
-    saveTasks(newTasks);
+    // Firebaseに更新を保存
+    try {
+      await updateTask(user.id, reorderedTask.id, {
+        status: reorderedTask.status,
+        updatedAt: reorderedTask.updatedAt,
+      });
+    } catch (error) {
+      console.error('タスクの更新に失敗しました:', error);
+    }
   };
 
   const handleDeleteTask = (taskId: string) => {
