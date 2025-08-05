@@ -18,7 +18,7 @@ import {
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { setupRealtimeListener, updateTask } from '../firebase';
+import { setupRealtimeListener, updateTask, deleteTask } from '../firebase';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 
@@ -70,9 +70,15 @@ const TaskBoard: React.FC = () => {
     }
   };
 
-  const handleDeleteTask = (taskId: string) => {
-    const newTasks = tasks.filter(task => task.id !== taskId);
-    saveTasks(newTasks);
+  const handleDeleteTask = async (taskId: string) => {
+    if (!user?.id) return;
+    
+    try {
+      // Firebaseからタスクを削除
+      await deleteTask(user.id, taskId);
+    } catch (error) {
+      console.error('タスクの削除に失敗しました:', error);
+    }
   };
 
   const getPriorityColor = (priority: Task['priority']) => {

@@ -10,10 +10,11 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    sourcemap: false,
+    minify: 'terser',
     rollupOptions: {
       input: {
-        main: './public/index.html'
+        main: './index.html'
       },
       output: {
         manualChunks: {
@@ -22,7 +23,8 @@ export default defineConfig({
           router: ['react-router-dom'],
           animation: ['framer-motion', 'react-beautiful-dnd'],
           calendar: ['@fullcalendar/react', '@fullcalendar/daygrid'],
-          utils: ['date-fns', 'react-hot-toast']
+          utils: ['date-fns', 'react-hot-toast'],
+          firebase: ['firebase']
         }
       }
     },
@@ -30,5 +32,8 @@ export default defineConfig({
   },
   base: '',
   publicDir: 'public',
-  root: '.'
+  root: '.',
+  define: {
+    'process.env.NODE_ENV': '"production"'
+  }
 }) 
