@@ -41,6 +41,8 @@ import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
+import { useAuth } from '../contexts/AuthContext';
+import { setupRealtimeListener, updateTask, deleteTask } from '../firebase';
 
 interface Task {
   id: string;
@@ -61,25 +63,26 @@ interface Column {
 }
 
 const KanbanBoard: React.FC = () => {
+  const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [columns, setColumns] = useState<Column[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   useEffect(() => {
-    loadTasks();
-  }, []);
+    if (!user?.id) return;
+
+    // Firebaseのリアルタイムリスナーを設定
+    const unsubscribe = setupRealtimeListener(user.id, (firebaseTasks) => {
+      setTasks(firebaseTasks);
+    });
+
+    return () => unsubscribe();
+  }, [user?.id]);
 
   useEffect(() => {
     updateColumns();
   }, [tasks]);
-
-  const loadTasks = () => {
-    const savedTasks = localStorage.getItem('tasks');
-    if (savedTasks) {
-      setTasks(JSON.parse(savedTasks));
-    }
-  };
 
   const updateColumns = () => {
     const todoTasks = tasks.filter(task => task.status === 'todo');
@@ -108,7 +111,7 @@ const KanbanBoard: React.FC = () => {
     ]);
   };
 
-  const handleDragEnd = (result: any) => {
+  const handleDragEnd = async (result: any) => {
     const { destination, source, draggableId } = result;
 
     if (!destination) return;
@@ -134,36 +137,48 @@ const KanbanBoard: React.FC = () => {
     destTasks.splice(destination.index, 0, removed);
 
     // タスクのステータスを更新
-    const updatedTask = { ...removed, status: destination.droppableId as any };
-    const updatedTasks = tasks.map(task => 
-      task.id === updatedTask.id ? updatedTask : task
-    );
-
-    localStorage.setItem('tasks', JSON.stringify(updatedTasks));
-    setTasks(updatedTasks);
+    const updatedTask = { 
+      ...removed, 
+      status: destination.droppableId as any,
+      updatedAt: new Date().toISOString()
+    };
+    
+    try {
+      if (user?.id) {
+        await updateTask(user.id, updatedTask.id, {
+          status: updatedTask.status,
+          updatedAt: updatedTask.updatedAt,
+        });
+      }
+    } catch (error) {
+      console.error('タスクの更新に失敗しました:', error);
+    }
   };
 
-  const handleSaveTask = () => {
-    if (!editingTask) return;
+  const handleSaveTask = async () => {
+    if (!editingTask || !user?.id) return;
 
-    const updatedTasks = editingTask.id
-      ? tasks.map(task => task.id === editingTask.id ? editingTask : task)
-      : [...tasks, editingTask];
-
-    localStorage.setItem('tasks', JSON.stringify(updatedTasks));
-    setTasks(updatedTasks);
-    setDialogOpen(false);
-    setEditingTask(null);
+    try {
+      if (editingTask.id) {
+        await updateTask(user.id, editingTask.id, editingTask);
+      }
+      setDialogOpen(false);
+      setEditingTask(null);
+    } catch (error) {
+      console.error('タスクの保存に失敗しました:', error);
+    }
   };
 
-  const handleDeleteTask = () => {
-    if (!editingTask) return;
+  const handleDeleteTask = async () => {
+    if (!editingTask || !user?.id) return;
 
-    const updatedTasks = tasks.filter(task => task.id !== editingTask.id);
-    localStorage.setItem('tasks', JSON.stringify(updatedTasks));
-    setTasks(updatedTasks);
-    setDialogOpen(false);
-    setEditingTask(null);
+    try {
+      await deleteTask(user.id, editingTask.id);
+      setDialogOpen(false);
+      setEditingTask(null);
+    } catch (error) {
+      console.error('タスクの削除に失敗しました:', error);
+    }
   };
 
   const getPriorityColor = (priority: string) => {
