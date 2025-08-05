@@ -113,7 +113,7 @@ const Dashboard: React.FC = () => {
     {
       title: '総タスク数',
       value: tasks.length,
-      change: 12,
+      change: 0,
       icon: <Assignment />,
       color: '#6366f1',
       gradient: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
@@ -121,7 +121,7 @@ const Dashboard: React.FC = () => {
     {
       title: '進行中',
       value: inProgressTasks.length,
-      change: 8,
+      change: 0,
       icon: <Schedule />,
       color: '#f59e0b',
       gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
@@ -129,7 +129,7 @@ const Dashboard: React.FC = () => {
     {
       title: '完了済み',
       value: doneTasks.length,
-      change: 15,
+      change: 0,
       icon: <CheckCircle />,
       color: '#10b981',
       gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
@@ -137,7 +137,7 @@ const Dashboard: React.FC = () => {
     {
       title: '期限超過',
       value: overdueTasks.length,
-      change: -3,
+      change: 0,
       icon: <Warning />,
       color: '#ef4444',
       gradient: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
@@ -344,23 +344,25 @@ const Dashboard: React.FC = () => {
                         </Typography>
                       </Box>
                     </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      {card.change > 0 ? (
-                        <TrendingUp sx={{ color: 'rgba(255, 255, 255, 0.9)', fontSize: 18, mr: 1 }} />
-                      ) : (
-                        <TrendingDown sx={{ color: 'rgba(255, 255, 255, 0.9)', fontSize: 18, mr: 1 }} />
-                      )}
-                      <Typography
-                        variant="body2"
-                        sx={{ 
-                          color: 'rgba(255, 255, 255, 0.9)', 
-                          fontWeight: 600,
-                          fontSize: '0.875rem',
-                        }}
-                      >
-                        {Math.abs(card.change)}%
-                      </Typography>
-                    </Box>
+                    {card.change !== 0 && (
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        {card.change > 0 ? (
+                          <TrendingUp sx={{ color: 'rgba(255, 255, 255, 0.9)', fontSize: 18, mr: 1 }} />
+                        ) : (
+                          <TrendingDown sx={{ color: 'rgba(255, 255, 255, 0.9)', fontSize: 18, mr: 1 }} />
+                        )}
+                        <Typography
+                          variant="body2"
+                          sx={{ 
+                            color: 'rgba(255, 255, 255, 0.9)', 
+                            fontWeight: 600,
+                            fontSize: '0.875rem',
+                          }}
+                        >
+                          {Math.abs(card.change)}%
+                        </Typography>
+                      </Box>
+                    )}
                   </CardContent>
                 </Paper>
               </motion.div>

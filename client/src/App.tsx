@@ -67,13 +67,19 @@ function AppContent() {
         <Toaster
           position="top-right"
           toastOptions={{
-            duration: 4000,
+            duration: 3000,
             style: {
               background: '#363636',
               color: '#fff',
               borderRadius: '8px',
+              maxWidth: '400px',
             },
           }}
+          containerStyle={{
+            top: 20,
+            right: 20,
+          }}
+          gutter={8}
         />
       </ThemeProvider>
     );
@@ -123,13 +129,19 @@ function AppContent() {
       <Toaster
         position="top-right"
         toastOptions={{
-          duration: 4000,
+          duration: 3000,
           style: {
             background: '#363636',
             color: '#fff',
             borderRadius: '8px',
+            maxWidth: '400px',
           },
         }}
+        containerStyle={{
+          top: 20,
+          right: 20,
+        }}
+        gutter={8}
       />
     </ThemeProvider>
   );
