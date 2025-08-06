@@ -27,6 +27,23 @@ export const db = getFirestore(app);
 // Storage
 export const storage = getStorage(app);
 
+// ローカルストレージの重複データをクリアする関数
+const clearDuplicateTasks = (userId: string) => {
+  const savedTasks = localStorage.getItem(`tasks_${userId}`);
+  if (savedTasks) {
+    const tasks = JSON.parse(savedTasks);
+    const uniqueTasks = tasks.filter((task: any, index: number, self: any[]) => 
+      index === self.findIndex((t: any) => t.id === task.id)
+    );
+    if (uniqueTasks.length !== tasks.length) {
+      console.log('重複データをクリアしました');
+      localStorage.setItem(`tasks_${userId}`, JSON.stringify(uniqueTasks));
+      return uniqueTasks;
+    }
+  }
+  return null;
+};
+
 // リアルタイムリスナーを設定する関数
 export const setupRealtimeListener = (userId: string, callback: (tasks: any[]) => void) => {
   try {
@@ -35,6 +52,10 @@ export const setupRealtimeListener = (userId: string, callback: (tasks: any[]) =
     // Firebaseが設定されていない場合はローカルストレージを使用
     if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
       console.log('Firebase設定がダミーのため、ローカルストレージを使用します');
+      
+      // 重複データをクリア
+      const cleanedTasks = clearDuplicateTasks(userId);
+      
       const savedTasks = localStorage.getItem(`tasks_${userId}`);
       console.log('ローカルストレージから取得したタスク:', savedTasks);
       if (savedTasks) {
@@ -89,7 +110,19 @@ export const saveTask = async (userId: string, task: any) => {
       console.log('Firebase設定がダミーのため、ローカルストレージに保存します');
       const savedTasks = localStorage.getItem(`tasks_${userId}`);
       const tasks = savedTasks ? JSON.parse(savedTasks) : [];
-      tasks.push(task);
+      
+      // 既存のタスクを更新するか、新しいタスクを追加する
+      const existingTaskIndex = tasks.findIndex((t: any) => t.id === task.id);
+      if (existingTaskIndex !== -1) {
+        // 既存のタスクを更新
+        tasks[existingTaskIndex] = { ...tasks[existingTaskIndex], ...task };
+        console.log('既存のタスクを更新しました');
+      } else {
+        // 新しいタスクを追加
+        tasks.push(task);
+        console.log('新しいタスクを追加しました');
+      }
+      
       localStorage.setItem(`tasks_${userId}`, JSON.stringify(tasks));
       return;
     }
@@ -101,14 +134,24 @@ export const saveTask = async (userId: string, task: any) => {
     // ローカルストレージにも保存（バックアップ）
     const savedTasks = localStorage.getItem(`tasks_${userId}`);
     const tasks = savedTasks ? JSON.parse(savedTasks) : [];
-    tasks.push(task);
+    const existingTaskIndex = tasks.findIndex((t: any) => t.id === task.id);
+    if (existingTaskIndex !== -1) {
+      tasks[existingTaskIndex] = { ...tasks[existingTaskIndex], ...task };
+    } else {
+      tasks.push(task);
+    }
     localStorage.setItem(`tasks_${userId}`, JSON.stringify(tasks));
   } catch (error) {
     console.error('タスクの保存に失敗しました:', error);
     // Firebaseが失敗した場合はローカルストレージに保存
     const savedTasks = localStorage.getItem(`tasks_${userId}`);
     const tasks = savedTasks ? JSON.parse(savedTasks) : [];
-    tasks.push(task);
+    const existingTaskIndex = tasks.findIndex((t: any) => t.id === task.id);
+    if (existingTaskIndex !== -1) {
+      tasks[existingTaskIndex] = { ...tasks[existingTaskIndex], ...task };
+    } else {
+      tasks.push(task);
+    }
     localStorage.setItem(`tasks_${userId}`, JSON.stringify(tasks));
     throw error;
   }

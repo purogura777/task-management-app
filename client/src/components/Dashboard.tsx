@@ -96,7 +96,7 @@ const Dashboard: React.FC = () => {
       console.log('サンプルデータを追加中...');
       const sampleTasks = [
         {
-          id: '1',
+          id: 'sample_1',
           title: 'プロジェクト計画の作成',
           description: '新しいプロジェクトの計画書を作成する',
           status: 'todo' as const,
@@ -107,7 +107,7 @@ const Dashboard: React.FC = () => {
           updatedAt: new Date().toISOString(),
         },
         {
-          id: '2',
+          id: 'sample_2',
           title: 'チームミーティング',
           description: '週次チームミーティングの準備',
           status: 'inProgress' as const,
@@ -118,7 +118,7 @@ const Dashboard: React.FC = () => {
           updatedAt: new Date().toISOString(),
         },
         {
-          id: '3',
+          id: 'sample_3',
           title: 'ドキュメントの更新',
           description: '技術文書の最新版に更新',
           status: 'done' as const,
@@ -133,11 +133,6 @@ const Dashboard: React.FC = () => {
       // サンプルデータをローカルストレージに直接保存
       localStorage.setItem(`tasks_${user.id}`, JSON.stringify(sampleTasks));
       console.log('サンプルデータをローカルストレージに保存しました');
-      
-      // saveTask関数も呼び出し（フォールバック用）
-      sampleTasks.forEach(task => {
-        saveTask(user.id, task);
-      });
       
       localStorage.setItem('hasVisited', 'true');
     }
