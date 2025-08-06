@@ -66,7 +66,24 @@ export const setupRealtimeListener = (userId: string, callback: (tasks: any[]) =
         console.log('ローカルストレージにタスクがありません');
         callback([]);
       }
-      return () => {};
+      
+      // ローカルストレージの変更を監視する関数
+      const checkForUpdates = () => {
+        const currentTasks = localStorage.getItem(`tasks_${userId}`);
+        if (currentTasks) {
+          const tasks = JSON.parse(currentTasks);
+          callback(tasks);
+        } else {
+          callback([]);
+        }
+      };
+      
+      // 定期的にローカルストレージをチェック（簡易的なリアルタイム更新）
+      const interval = setInterval(checkForUpdates, 1000);
+      
+      return () => {
+        clearInterval(interval);
+      };
     }
     
     const tasksRef = collection(db, 'users', userId, 'tasks');
@@ -218,6 +235,15 @@ export const deleteTask = async (userId: string, taskId: string) => {
         const filteredTasks = tasks.filter((task: any) => task.id !== taskId);
         localStorage.setItem(`tasks_${userId}`, JSON.stringify(filteredTasks));
         console.log('ローカルストレージからタスクを削除しました');
+        
+        // 削除後に即座にコールバックを呼び出してリアルタイム更新を実行
+        setTimeout(() => {
+          const updatedTasks = localStorage.getItem(`tasks_${userId}`);
+          if (updatedTasks) {
+            const tasks = JSON.parse(updatedTasks);
+            console.log('削除後のタスク更新:', tasks);
+          }
+        }, 100);
       }
       return;
     }

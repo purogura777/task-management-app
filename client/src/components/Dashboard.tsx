@@ -347,6 +347,7 @@ const Dashboard: React.FC = () => {
                   background: card.gradient,
                   boxShadow: `0 8px 32px ${alpha(card.color, 0.3)}`,
                   border: '1px solid rgba(255, 255, 255, 0.1)',
+                  cursor: 'pointer',
                   '&:hover': {
                     transform: 'translateY(-4px)',
                     boxShadow: `0 12px 40px ${alpha(card.color, 0.4)}`,
@@ -354,6 +355,20 @@ const Dashboard: React.FC = () => {
                   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   overflow: 'hidden',
                   position: 'relative',
+                }}
+                onClick={() => {
+                  // 統計カードをクリックした時の処理
+                  console.log('統計カードをクリックしました:', card.title);
+                  // ここで各ステータスのタスク一覧に遷移する処理を追加
+                  if (card.title === '総タスク数') {
+                    navigate('/kanban');
+                  } else if (card.title === '進行中') {
+                    navigate('/kanban');
+                  } else if (card.title === '完了済み') {
+                    navigate('/kanban');
+                  } else if (card.title === '期限超過') {
+                    navigate('/kanban');
+                  }
                 }}>
                   <Box sx={{ 
                     position: 'absolute', 
@@ -611,11 +626,17 @@ const Dashboard: React.FC = () => {
                             py: 1.5,
                             borderRadius: 2,
                             mb: 1,
+                            cursor: 'pointer',
                             '&:hover': {
                               backgroundColor: 'rgba(99, 102, 241, 0.05)',
                               transform: 'translateX(4px)',
                             },
                             transition: 'all 0.2s ease',
+                          }}
+                          onClick={() => {
+                            // タスクの詳細表示や編集機能を追加
+                            console.log('タスクをクリックしました:', task);
+                            // ここでタスク編集ダイアログを開くなどの処理を追加
                           }}>
                             <ListItemAvatar>
                               <Avatar sx={{ 
