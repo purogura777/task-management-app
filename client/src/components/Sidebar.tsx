@@ -196,32 +196,35 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
   // バッジ数を更新
   const updateBadgeCounts = () => {
     // 個人プロジェクトのタスク数（デモユーザー、個人、またはassigneeが空のタスク）
-    workspaceItems[0].badge = tasks.filter((task: any) => 
+    const personalCount = tasks.filter((task: any) => 
       !task.assignee || task.assignee === 'デモユーザー' || task.assignee === '個人'
     ).length;
+    workspaceItems[0].badge = personalCount > 0 ? personalCount : null;
     
     // チームAのタスク数（進行中のタスク）
-    workspaceItems[1].badge = tasks.filter((task: any) => 
+    const teamACount = tasks.filter((task: any) => 
       task.status === 'inProgress'
     ).length;
+    workspaceItems[1].badge = teamACount > 0 ? teamACount : null;
     
     // プロジェクトXのタスク数（高優先度のタスク）
-    workspaceItems[2].badge = tasks.filter((task: any) => 
+    const projectXCount = tasks.filter((task: any) => 
       task.priority === 'high'
     ).length;
+    workspaceItems[2].badge = projectXCount > 0 ? projectXCount : null;
 
     // プロジェクトのバッジ数を更新
-    projectItems[0].badge = tasks.filter((task: any) => 
-      !task.assignee || task.assignee === 'デモユーザー' || task.assignee === '個人'
-    ).length;
+    projectItems[0].badge = personalCount > 0 ? personalCount : null;
     
-    projectItems[1].badge = tasks.filter((task: any) => 
+    const workCount = tasks.filter((task: any) => 
       task.assignee === '仕事' || task.priority === 'high'
     ).length;
+    projectItems[1].badge = workCount > 0 ? workCount : null;
     
-    projectItems[2].badge = tasks.filter((task: any) => 
+    const studyCount = tasks.filter((task: any) => 
       task.assignee === '学習' || task.priority === 'medium'
     ).length;
+    projectItems[2].badge = studyCount > 0 ? studyCount : null;
   };
 
   // コンポーネントマウント時にバッジ数を計算し、現在の選択状態を復元

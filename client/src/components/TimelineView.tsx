@@ -165,6 +165,15 @@ const TimelineView: React.FC = () => {
     }
   };
 
+  const getPriorityLabel = (priority: string) => {
+    switch (priority) {
+      case 'high': return '高';
+      case 'medium': return '中';
+      case 'low': return '低';
+      default: return priority;
+    }
+  };
+
   const handleSaveTask = async () => {
     if (!editingTask || !user?.id) return;
 
@@ -432,7 +441,7 @@ const TimelineView: React.FC = () => {
                             {task.title}
                           </Typography>
                           <Chip
-                            label={task.priority}
+                            label={getPriorityLabel(task.priority)}
                             size="small"
                             sx={{
                               backgroundColor: getPriorityColor(task.priority),
