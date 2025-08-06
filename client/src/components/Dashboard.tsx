@@ -181,7 +181,7 @@ const Dashboard: React.FC = () => {
 
 
     return () => unsubscribe();
-  }, [user?.id]);
+  }, [user?.id, user?.name]);
 
   // フィルタリングイベントの監視
   useEffect(() => {

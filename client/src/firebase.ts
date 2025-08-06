@@ -57,13 +57,10 @@ export const setupRealtimeListener = (userId: string, callback: (tasks: any[]) =
       const cleanedTasks = clearDuplicateTasks(userId);
       
       const savedTasks = localStorage.getItem(`tasks_${userId}`);
-      console.log('ローカルストレージから取得したタスク:', savedTasks);
       if (savedTasks) {
         const tasks = JSON.parse(savedTasks);
-        console.log('パースしたタスク:', tasks);
         callback(tasks);
       } else {
-        console.log('ローカルストレージにタスクがありません');
         callback([]);
       }
       
@@ -79,7 +76,7 @@ export const setupRealtimeListener = (userId: string, callback: (tasks: any[]) =
       };
       
       // 定期的にローカルストレージをチェック（簡易的なリアルタイム更新）
-      const interval = setInterval(checkForUpdates, 1000);
+      const interval = setInterval(checkForUpdates, 2000); // 間隔を2秒に変更
       
       return () => {
         clearInterval(interval);
