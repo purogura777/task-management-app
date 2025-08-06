@@ -46,6 +46,7 @@ interface Notification {
   time: string;
   read: boolean;
   type: 'task' | 'system' | 'team';
+  createdAt: string;
 }
 
 const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
@@ -56,6 +57,19 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   const [notificationAnchorEl, setNotificationAnchorEl] = useState<null | HTMLElement>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
+
+  // 通知をローカルストレージから読み込み
+  const loadNotifications = () => {
+    if (!user?.id) return [];
+    const saved = localStorage.getItem(`notifications_${user.id}`);
+    return saved ? JSON.parse(saved) : [];
+  };
+
+  // 通知をローカルストレージに保存
+  const saveNotifications = (notifications: Notification[]) => {
+    if (!user?.id) return;
+    localStorage.setItem(`notifications_${user.id}`, JSON.stringify(notifications));
+  };
 
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -87,23 +101,26 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   };
 
   const handleNotificationClick = (notificationId: string) => {
-    setNotifications(prev => 
-      prev.map(notification => 
-        notification.id === notificationId 
-          ? { ...notification, read: true }
-          : notification
-      )
+    const updatedNotifications = notifications.map(notification => 
+      notification.id === notificationId 
+        ? { ...notification, read: true }
+        : notification
     );
+    setNotifications(updatedNotifications);
+    saveNotifications(updatedNotifications);
   };
 
   const handleMarkAllAsRead = () => {
-    setNotifications(prev => 
-      prev.map(notification => ({ ...notification, read: true }))
-    );
+    const updatedNotifications = notifications.map(notification => ({ 
+      ...notification, 
+      read: true 
+    }));
+    setNotifications(updatedNotifications);
+    saveNotifications(updatedNotifications);
   };
 
-  // タスクから通知を生成
-  const generateNotificationsFromTasks = (tasks: any[]) => {
+  // タスクから通知を生成（重複を避ける）
+  const generateNotificationsFromTasks = (tasks: any[], existingNotifications: Notification[]) => {
     const newNotifications: Notification[] = [];
     const now = new Date();
 
@@ -113,18 +130,23 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
       const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
       
       if (daysUntilDue <= 1 && daysUntilDue >= 0 && task.status !== 'done') {
-        newNotifications.push({
-          id: `due-${task.id}`,
-          title: 'タスクの期限が近づいています',
-          message: `「${task.title}」の期限が${daysUntilDue === 0 ? '今日' : '明日'}です`,
-          time: daysUntilDue === 0 ? '今日' : '明日',
-          read: false,
-          type: 'task'
-        });
+        const notificationId = `due-${task.id}`;
+        // 既存の通知がない場合のみ追加
+        if (!existingNotifications.some(n => n.id === notificationId)) {
+          newNotifications.push({
+            id: notificationId,
+            title: 'タスクの期限が近づいています',
+            message: `「${task.title}」の期限が${daysUntilDue === 0 ? '今日' : '明日'}です`,
+            time: daysUntilDue === 0 ? '今日' : '明日',
+            read: false,
+            type: 'task',
+            createdAt: new Date().toISOString()
+          });
+        }
       }
     });
 
-    // 新しく作成されたタスクの通知
+    // 新しく作成されたタスクの通知（24時間以内）
     const recentTasks = tasks.filter(task => {
       const createdAt = new Date(task.createdAt);
       const hoursSinceCreated = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
@@ -132,18 +154,30 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
     });
 
     recentTasks.forEach(task => {
-      newNotifications.push({
-        id: `new-${task.id}`,
-        title: '新しいタスクが作成されました',
-        message: `「${task.title}」が作成されました`,
-        time: '新着',
-        read: false,
-        type: 'task'
-      });
+      const notificationId = `new-${task.id}`;
+      // 既存の通知がない場合のみ追加
+      if (!existingNotifications.some(n => n.id === notificationId)) {
+        newNotifications.push({
+          id: notificationId,
+          title: '新しいタスクが作成されました',
+          message: `「${task.title}」が作成されました`,
+          time: '新着',
+          read: false,
+          type: 'task',
+          createdAt: new Date().toISOString()
+        });
+      }
     });
 
     return newNotifications;
   };
+
+  // 初期化時に通知を読み込み
+  useEffect(() => {
+    if (!user?.id) return;
+    const savedNotifications = loadNotifications();
+    setNotifications(savedNotifications);
+  }, [user?.id]);
 
   // タスクの監視と通知の生成
   useEffect(() => {
@@ -152,16 +186,26 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
     const unsubscribe = setupRealtimeListener(user.id, (firebaseTasks) => {
       setTasks(firebaseTasks);
       
-      // 既存の通知を保持しつつ、新しい通知を追加
-      const existingNotifications = notifications.filter(n => n.type !== 'task');
-      const taskNotifications = generateNotificationsFromTasks(firebaseTasks);
+      // 既存の通知を読み込み
+      const existingNotifications = loadNotifications();
       
-      // 重複を避けるために、既存のタスク通知を除去
-      const uniqueTaskNotifications = taskNotifications.filter(newNotif => 
-        !existingNotifications.some(existing => existing.id === newNotif.id)
-      );
+      // 新しい通知を生成
+      const newTaskNotifications = generateNotificationsFromTasks(firebaseTasks, existingNotifications);
       
-      setNotifications([...existingNotifications, ...uniqueTaskNotifications]);
+      // 古い通知を削除（7日以上前の通知）
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
+      const filteredNotifications = existingNotifications.filter(notification => {
+        const createdAt = new Date(notification.createdAt);
+        return createdAt > sevenDaysAgo;
+      });
+      
+      // 新しい通知を追加
+      const updatedNotifications = [...filteredNotifications, ...newTaskNotifications];
+      
+      setNotifications(updatedNotifications);
+      saveNotifications(updatedNotifications);
     });
 
     return () => unsubscribe();

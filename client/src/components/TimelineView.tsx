@@ -82,6 +82,30 @@ const TimelineView: React.FC = () => {
     return () => unsubscribe();
   }, [user?.id]);
 
+  // フィルタリングイベントの監視
+  useEffect(() => {
+    const handleFilterChange = (event: CustomEvent) => {
+      const { type, value, filteredTasks } = event.detail;
+      console.log('TimelineView: フィルタ変更を検知:', type, value, filteredTasks);
+      
+      // フィルタリングされたタスクを設定
+      if (filteredTasks) {
+        const tasksWithDates = filteredTasks.map((task: Task, index: number) => ({
+          ...task,
+          startDate: task.startDate || format(addDays(new Date(), index * 2), 'yyyy-MM-dd'),
+          endDate: task.endDate || format(addDays(new Date(), index * 2 + 1), 'yyyy-MM-dd'),
+        }));
+        setTasks(tasksWithDates);
+      }
+    };
+
+    window.addEventListener('filterChanged', handleFilterChange as EventListener);
+    
+    return () => {
+      window.removeEventListener('filterChanged', handleFilterChange as EventListener);
+    };
+  }, []);
+
   const getTimelineRange = () => {
     const today = new Date();
     const startDate = viewMode === 'week' 

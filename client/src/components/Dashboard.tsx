@@ -179,6 +179,35 @@ const Dashboard: React.FC = () => {
     return () => unsubscribe();
   }, [user?.id]);
 
+  // フィルタリングイベントの監視
+  useEffect(() => {
+    const handleFilterChange = (event: CustomEvent) => {
+      const { type, value, filteredTasks } = event.detail;
+      console.log('フィルタ変更を検知:', type, value, filteredTasks);
+      
+      if (type === 'project') {
+        setCurrentProject(value);
+        setCurrentWorkspace(null);
+      } else if (type === 'workspace') {
+        setCurrentWorkspace(value);
+        setCurrentProject(null);
+      }
+      
+      // フィルタリングされたタスクを設定
+      if (filteredTasks) {
+        setTasks(filteredTasks);
+      }
+    };
+
+    window.addEventListener('filterChanged', handleFilterChange as EventListener);
+    
+    return () => {
+      window.removeEventListener('filterChanged', handleFilterChange as EventListener);
+    };
+  }, []);
+
+  // タスクの監視と通知の生成
+
   // フィルタリングされたタスクを取得
   const getFilteredTasks = () => {
     if (!currentProject && !currentWorkspace) {

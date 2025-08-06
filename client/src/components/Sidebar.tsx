@@ -194,17 +194,19 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
         filteredTasks = tasks;
     }
     
-    // フィルタリング結果をローカルストレージに保存
+    // フィルタリング結果をグローバル状態として保存
     localStorage.setItem('filteredTasks', JSON.stringify(filteredTasks));
     localStorage.setItem('currentProject', projectName);
     localStorage.removeItem('currentWorkspace'); // ワークスペース選択をクリア
     
-    // 状態を即座に更新
-    setCurrentProject(projectName);
-    // 強制的に再レンダリング
-    setTimeout(() => {
-      window.location.reload();
-    }, 100);
+    // カスタムイベントを発火して他のコンポーネントに通知
+    window.dispatchEvent(new CustomEvent('filterChanged', {
+      detail: {
+        type: 'project',
+        value: projectName,
+        filteredTasks: filteredTasks
+      }
+    }));
     
     // トースト通知を表示
     toast.success(`${projectName}のタスクを表示中`);
@@ -235,17 +237,19 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
         filteredTasks = tasks;
     }
     
-    // フィルタリング結果をローカルストレージに保存
+    // フィルタリング結果をグローバル状態として保存
     localStorage.setItem('filteredTasks', JSON.stringify(filteredTasks));
     localStorage.setItem('currentWorkspace', workspaceName);
     localStorage.removeItem('currentProject'); // プロジェクト選択をクリア
     
-    // 状態を即座に更新
-    setCurrentWorkspace(workspaceName);
-    // 強制的に再レンダリング
-    setTimeout(() => {
-      window.location.reload();
-    }, 100);
+    // カスタムイベントを発火して他のコンポーネントに通知
+    window.dispatchEvent(new CustomEvent('filterChanged', {
+      detail: {
+        type: 'workspace',
+        value: workspaceName,
+        filteredTasks: filteredTasks
+      }
+    }));
     
     // トースト通知を表示
     toast.success(`${workspaceName}のタスクを表示中`);

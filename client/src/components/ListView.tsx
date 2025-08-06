@@ -91,6 +91,25 @@ const ListView: React.FC = () => {
     return () => unsubscribe();
   }, [user?.id]);
 
+  // フィルタリングイベントの監視
+  useEffect(() => {
+    const handleFilterChange = (event: CustomEvent) => {
+      const { type, value, filteredTasks } = event.detail;
+      console.log('ListView: フィルタ変更を検知:', type, value, filteredTasks);
+      
+      // フィルタリングされたタスクを設定
+      if (filteredTasks) {
+        setTasks(filteredTasks);
+      }
+    };
+
+    window.addEventListener('filterChanged', handleFilterChange as EventListener);
+    
+    return () => {
+      window.removeEventListener('filterChanged', handleFilterChange as EventListener);
+    };
+  }, []);
+
   useEffect(() => {
     filterAndSortTasks();
   }, [tasks, searchTerm, statusFilter, priorityFilter, order, orderBy]);
