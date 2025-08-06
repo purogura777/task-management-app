@@ -137,7 +137,7 @@ const Dashboard: React.FC = () => {
           status: 'todo' as const,
           priority: 'high' as const,
           dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          assignee: user.name || '未設定',
+          assignee: 'デモユーザー',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           project: '仕事',
@@ -150,7 +150,7 @@ const Dashboard: React.FC = () => {
           status: 'inProgress' as const,
           priority: 'medium' as const,
           dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          assignee: user.name || '未設定',
+          assignee: 'デモユーザー',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           project: '学習',
@@ -163,7 +163,7 @@ const Dashboard: React.FC = () => {
           status: 'done' as const,
           priority: 'low' as const,
           dueDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          assignee: user.name || '未設定',
+          assignee: 'デモユーザー',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           project: '仕事',
@@ -176,8 +176,63 @@ const Dashboard: React.FC = () => {
       console.log('サンプルデータをローカルストレージに保存しました');
       
       localStorage.setItem('hasVisited', 'true');
+    } else {
+      // 既存のタスクデータを確認
+      const existingTasks = localStorage.getItem(`tasks_${user.id}`);
+      if (existingTasks) {
+        const tasks = JSON.parse(existingTasks);
+        console.log('既存のタスクデータ:', tasks);
+        
+        // タスクデータが正しくない場合は再作成
+        if (tasks.length === 0 || !tasks.some((task: any) => task.assignee === 'デモユーザー')) {
+          console.log('タスクデータを再作成します...');
+          const sampleTasks = [
+            {
+              id: 'sample_1',
+              title: 'プロジェクト計画の作成',
+              description: '新しいプロジェクトの計画書を作成する',
+              status: 'todo' as const,
+              priority: 'high' as const,
+              dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+              assignee: 'デモユーザー',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              project: '仕事',
+              workspace: 'チームA',
+            },
+            {
+              id: 'sample_2',
+              title: 'チームミーティング',
+              description: '週次チームミーティングの準備',
+              status: 'inProgress' as const,
+              priority: 'medium' as const,
+              dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+              assignee: 'デモユーザー',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              project: '学習',
+              workspace: 'プロジェクトX',
+            },
+            {
+              id: 'sample_3',
+              title: 'ドキュメントの更新',
+              description: '技術文書の最新版に更新',
+              status: 'done' as const,
+              priority: 'low' as const,
+              dueDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+              assignee: 'デモユーザー',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              project: '仕事',
+              workspace: 'チームA',
+            }
+          ];
+          
+          localStorage.setItem(`tasks_${user.id}`, JSON.stringify(sampleTasks));
+          console.log('タスクデータを再作成しました');
+        }
+      }
     }
-
 
 
     return () => unsubscribe();
@@ -926,9 +981,9 @@ const Dashboard: React.FC = () => {
                     onChange={(e) => setSelectedTask(prev => prev ? { ...prev, status: e.target.value as any } : null)}
                     label="ステータス"
                   >
-                    <MenuItem value="todo">To Do</MenuItem>
-                    <MenuItem value="inProgress">In Progress</MenuItem>
-                    <MenuItem value="done">Done</MenuItem>
+                    <MenuItem value="todo">未着手</MenuItem>
+                    <MenuItem value="inProgress">進行中</MenuItem>
+                    <MenuItem value="done">完了</MenuItem>
                   </Select>
                 </FormControl>
                 <FormControl fullWidth>

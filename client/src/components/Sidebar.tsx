@@ -195,22 +195,28 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
 
   // バッジ数を更新
   const updateBadgeCounts = () => {
+    console.log('Sidebar: タスク数:', tasks.length);
+    console.log('Sidebar: タスク詳細:', tasks);
+    
     // 個人プロジェクトのタスク数（デモユーザー、個人、またはassigneeが空のタスク）
     const personalCount = tasks.filter((task: any) => 
       !task.assignee || task.assignee === 'デモユーザー' || task.assignee === '個人'
     ).length;
+    console.log('Sidebar: 個人プロジェクトのタスク数:', personalCount);
     workspaceItems[0].badge = personalCount > 0 ? personalCount : null;
     
     // チームAのタスク数（進行中のタスク）
     const teamACount = tasks.filter((task: any) => 
       task.status === 'inProgress'
     ).length;
+    console.log('Sidebar: チームAのタスク数:', teamACount);
     workspaceItems[1].badge = teamACount > 0 ? teamACount : null;
     
     // プロジェクトXのタスク数（高優先度のタスク）
     const projectXCount = tasks.filter((task: any) => 
       task.priority === 'high'
     ).length;
+    console.log('Sidebar: プロジェクトXのタスク数:', projectXCount);
     workspaceItems[2].badge = projectXCount > 0 ? projectXCount : null;
 
     // プロジェクトのバッジ数を更新
