@@ -53,6 +53,7 @@ import { ja } from 'date-fns/locale';
 import { useAuth } from '../contexts/AuthContext';
 import { setupRealtimeListener, saveTask, updateTask, deleteTask } from '../firebase';
 import toast from 'react-hot-toast';
+import TaskForm from './TaskForm';
 
 interface Task {
   id: string;
@@ -65,6 +66,7 @@ interface Task {
   createdAt: string;
   project?: string;
   workspace?: string;
+  updatedAt: string;
 }
 
 interface StatCard {
@@ -87,6 +89,8 @@ const Dashboard: React.FC = () => {
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [currentProject, setCurrentProject] = useState<string>('個人プロジェクト');
   const [currentWorkspace, setCurrentWorkspace] = useState<string>('個人プロジェクト');
+  const [taskFormOpen, setTaskFormOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -771,12 +775,12 @@ const Dashboard: React.FC = () => {
                             },
                             transition: 'all 0.2s ease',
                           }}
-                          onClick={() => {
-                            // タスクの詳細表示や編集機能を追加
-                            console.log('タスクをクリックしました:', task);
-                            setSelectedTask(task);
-                            setTaskDialogOpen(true);
-                          }}>
+                                                     onClick={() => {
+                             // タスクの詳細表示や編集機能を追加
+                             console.log('タスクをクリックしました:', task);
+                             setEditingTask(task);
+                             setTaskFormOpen(true);
+                           }}>
                             <ListItemAvatar>
                               <Avatar sx={{ 
                                 background: `linear-gradient(135deg, ${getStatusColor(task.status)} 0%, ${alpha(getStatusColor(task.status), 0.8)} 100%)`,
@@ -845,28 +849,28 @@ const Dashboard: React.FC = () => {
         </Grid>
 
         {/* フローティングアクションボタン */}
-        <Fab
-          color="primary"
-          aria-label="新しいタスク"
-          onClick={() => navigate('/task/new')}
-          sx={{
-            position: 'fixed',
-            bottom: 32,
-            right: 32,
-            background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
-            boxShadow: '0 8px 32px rgba(99, 102, 241, 0.4)',
-            width: 64,
-            height: 64,
-            '&:hover': {
-              background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
-              boxShadow: '0 12px 40px rgba(99, 102, 241, 0.6)',
-              transform: 'scale(1.05)',
-            },
-            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          }}
-        >
-          <AddIcon sx={{ fontSize: 28 }} />
-        </Fab>
+                 <Fab
+           color="primary"
+           aria-label="新しいタスク"
+           onClick={() => setTaskFormOpen(true)}
+           sx={{
+             position: 'fixed',
+             bottom: 32,
+             right: 32,
+             background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+             boxShadow: '0 8px 32px rgba(99, 102, 241, 0.4)',
+             width: 64,
+             height: 64,
+             '&:hover': {
+               background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
+               boxShadow: '0 12px 40px rgba(99, 102, 241, 0.6)',
+               transform: 'scale(1.05)',
+             },
+             transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+           }}
+         >
+           <AddIcon sx={{ fontSize: 28 }} />
+         </Fab>
 
         {/* タスク編集ダイアログ */}
         <Dialog 
@@ -975,11 +979,20 @@ const Dashboard: React.FC = () => {
             >
               保存
             </Button>
-          </DialogActions>
-        </Dialog>
-      </motion.div>
-    </Box>
-  );
+                   </DialogActions>
+       </Dialog>
+
+       <TaskForm
+         open={taskFormOpen}
+         onClose={() => {
+           setTaskFormOpen(false);
+           setEditingTask(null);
+         }}
+         editingTask={editingTask}
+       />
+     </motion.div>
+   </Box>
+ );
 };
 
 export default Dashboard; 

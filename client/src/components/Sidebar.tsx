@@ -209,6 +209,19 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
     workspaceItems[2].badge = tasks.filter((task: any) => 
       task.priority === 'high'
     ).length;
+
+    // プロジェクトのバッジ数を更新
+    projectItems[0].badge = tasks.filter((task: any) => 
+      !task.assignee || task.assignee === 'デモユーザー' || task.assignee === '個人'
+    ).length;
+    
+    projectItems[1].badge = tasks.filter((task: any) => 
+      task.assignee === '仕事' || task.priority === 'high'
+    ).length;
+    
+    projectItems[2].badge = tasks.filter((task: any) => 
+      task.assignee === '学習' || task.priority === 'medium'
+    ).length;
   };
 
   // コンポーネントマウント時にバッジ数を計算し、現在の選択状態を復元

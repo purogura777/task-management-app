@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Container,
-  Paper,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
   TextField,
   Button,
   Typography,
@@ -12,7 +14,18 @@ import {
   MenuItem,
   Alert,
   CircularProgress,
+  IconButton,
+  Chip,
+  Avatar,
 } from '@mui/material';
+import {
+  Close,
+  Assignment,
+  Schedule,
+  PriorityHigh,
+  Person,
+  CalendarToday,
+} from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -34,10 +47,14 @@ interface Task {
   updatedAt: string;
 }
 
-const TaskForm: React.FC = () => {
-  const { id } = useParams();
+interface TaskFormProps {
+  open: boolean;
+  onClose: () => void;
+  editingTask?: Task | null;
+}
+
+const TaskForm: React.FC<TaskFormProps> = ({ open, onClose, editingTask }) => {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [dueDate, setDueDate] = useState<Date | null>(new Date());
@@ -49,27 +66,27 @@ const TaskForm: React.FC = () => {
     priority: 'medium' as Task['priority'],
   });
 
-  const isEditing = Boolean(id);
+  const isEditing = Boolean(editingTask);
 
   useEffect(() => {
-    if (isEditing && user) {
-      // 既存のタスクを読み込み（Firebaseから取得する必要がありますが、簡易的にローカルストレージを使用）
-      const savedTasks = localStorage.getItem(`tasks_${user.id}`);
-      if (savedTasks) {
-        const tasks: Task[] = JSON.parse(savedTasks);
-        const task = tasks.find(t => t.id === id);
-        if (task) {
-          setFormData({
-            title: task.title,
-            description: task.description,
-            status: task.status,
-            priority: task.priority,
-          });
-          setDueDate(new Date(task.dueDate));
-        }
-      }
+    if (editingTask) {
+      setFormData({
+        title: editingTask.title,
+        description: editingTask.description,
+        status: editingTask.status,
+        priority: editingTask.priority,
+      });
+      setDueDate(new Date(editingTask.dueDate));
+    } else {
+      setFormData({
+        title: '',
+        description: '',
+        status: 'todo',
+        priority: 'medium',
+      });
+      setDueDate(new Date());
     }
-  }, [id, user, isEditing]);
+  }, [editingTask]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,14 +107,14 @@ const TaskForm: React.FC = () => {
 
     try {
       const taskData: Task = {
-        id: isEditing ? id! : Date.now().toString(),
+        id: isEditing ? editingTask!.id : Date.now().toString(),
         title: formData.title,
         description: formData.description,
         status: formData.status,
         priority: formData.priority,
         dueDate: dueDate.toISOString().split('T')[0],
         assignee: user.name || '未設定',
-        createdAt: isEditing ? new Date().toISOString() : new Date().toISOString(),
+        createdAt: isEditing ? editingTask!.createdAt : new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
 
@@ -108,7 +125,7 @@ const TaskForm: React.FC = () => {
       }
       
       toast.success(isEditing ? 'タスクを更新しました' : 'タスクを作成しました');
-      navigate('/');
+      onClose();
     } catch (error) {
       console.error('タスク保存エラー:', error);
       setError('タスクの保存に失敗しました');
@@ -118,20 +135,73 @@ const TaskForm: React.FC = () => {
     }
   };
 
-  return (
-    <Container maxWidth="md" sx={{ mt: 2 }}>
-      <Paper elevation={3} sx={{ p: 3, borderRadius: 2 }}>
-        <Typography variant="h5" component="h1" gutterBottom align="center">
-          {isEditing ? 'タスクを編集' : '新しいタスクを作成'}
-        </Typography>
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'todo': return '#64748b';
+      case 'inProgress': return '#6366f1';
+      case 'done': return '#10b981';
+      default: return '#64748b';
+    }
+  };
 
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high': return '#ef4444';
+      case 'medium': return '#f59e0b';
+      case 'low': return '#10b981';
+      default: return '#64748b';
+    }
+  };
+
+  return (
+    <Dialog 
+      open={open} 
+      onClose={onClose} 
+      maxWidth="sm" 
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 3,
+          background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+        },
+      }}
+    >
+      <DialogTitle sx={{ 
+        pb: 1,
+        background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+        color: 'white',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between'
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Avatar sx={{ 
+            bgcolor: 'rgba(255, 255, 255, 0.2)', 
+            width: 40, 
+            height: 40 
+          }}>
+            <Assignment />
+          </Avatar>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            {isEditing ? 'タスクを編集' : '新しいタスクを作成'}
+          </Typography>
+        </Box>
+        <IconButton
+          onClick={onClose}
+          sx={{ color: 'white' }}
+        >
+          <Close />
+        </IconButton>
+      </DialogTitle>
+
+      <DialogContent sx={{ pt: 3 }}>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
           </Alert>
         )}
 
-        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
+        <Box component="form" onSubmit={handleSubmit}>
           <TextField
             fullWidth
             label="タスク名"
@@ -140,6 +210,8 @@ const TaskForm: React.FC = () => {
             margin="normal"
             required
             disabled={isLoading}
+            placeholder="タスクのタイトルを入力..."
+            sx={{ mb: 2 }}
           />
 
           <TextField
@@ -149,11 +221,13 @@ const TaskForm: React.FC = () => {
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             margin="normal"
             multiline
-            rows={4}
+            rows={3}
             disabled={isLoading}
+            placeholder="タスクの詳細を入力..."
+            sx={{ mb: 2 }}
           />
 
-          <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+          <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
             <FormControl fullWidth>
               <InputLabel>ステータス</InputLabel>
               <Select
@@ -161,10 +235,30 @@ const TaskForm: React.FC = () => {
                 label="ステータス"
                 onChange={(e) => setFormData({ ...formData, status: e.target.value as Task['status'] })}
                 disabled={isLoading}
+                startAdornment={
+                  <Box sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
+                    <Schedule sx={{ fontSize: 18, color: getStatusColor(formData.status) }} />
+                  </Box>
+                }
               >
-                <MenuItem value="todo">未着手</MenuItem>
-                <MenuItem value="inProgress">進行中</MenuItem>
-                <MenuItem value="done">完了</MenuItem>
+                <MenuItem value="todo">
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#64748b' }} />
+                    未着手
+                  </Box>
+                </MenuItem>
+                <MenuItem value="inProgress">
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#6366f1' }} />
+                    進行中
+                  </Box>
+                </MenuItem>
+                <MenuItem value="done">
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#10b981' }} />
+                    完了
+                  </Box>
+                </MenuItem>
               </Select>
             </FormControl>
 
@@ -175,10 +269,30 @@ const TaskForm: React.FC = () => {
                 label="優先度"
                 onChange={(e) => setFormData({ ...formData, priority: e.target.value as Task['priority'] })}
                 disabled={isLoading}
+                startAdornment={
+                  <Box sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
+                    <PriorityHigh sx={{ fontSize: 18, color: getPriorityColor(formData.priority) }} />
+                  </Box>
+                }
               >
-                <MenuItem value="low">低</MenuItem>
-                <MenuItem value="medium">中</MenuItem>
-                <MenuItem value="high">高</MenuItem>
+                <MenuItem value="low">
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#10b981' }} />
+                    低
+                  </Box>
+                </MenuItem>
+                <MenuItem value="medium">
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#f59e0b' }} />
+                    中
+                  </Box>
+                </MenuItem>
+                <MenuItem value="high">
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#ef4444' }} />
+                    高
+                  </Box>
+                </MenuItem>
               </Select>
             </FormControl>
           </Box>
@@ -188,34 +302,49 @@ const TaskForm: React.FC = () => {
               label="期限日"
               value={dueDate}
               onChange={(newValue) => setDueDate(newValue)}
-              sx={{ mt: 2, width: '100%' }}
+              sx={{ width: '100%' }}
               disabled={isLoading}
+              slots={{
+                openPickerIcon: CalendarToday,
+              }}
             />
           </LocalizationProvider>
 
-          <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
-            <Button
-              type="submit"
-              variant="contained"
-              size="large"
-              fullWidth
-              disabled={isLoading}
-            >
-              {isLoading ? <CircularProgress size={24} /> : (isEditing ? '更新' : '作成')}
-            </Button>
-            <Button
-              variant="outlined"
-              size="large"
-              fullWidth
-              onClick={() => navigate('/')}
-              disabled={isLoading}
-            >
-              キャンセル
-            </Button>
+          <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Person sx={{ fontSize: 18, color: 'text.secondary' }} />
+            <Typography variant="body2" color="text.secondary">
+              担当者: {user?.name || '未設定'}
+            </Typography>
           </Box>
         </Box>
-      </Paper>
-    </Container>
+      </DialogContent>
+
+      <DialogActions sx={{ p: 3, pt: 1 }}>
+        <Button
+          onClick={onClose}
+          variant="outlined"
+          disabled={isLoading}
+          sx={{ minWidth: 100 }}
+        >
+          キャンセル
+        </Button>
+        <Button
+          type="submit"
+          variant="contained"
+          disabled={isLoading || !formData.title}
+          onClick={handleSubmit}
+          sx={{ 
+            minWidth: 100,
+            background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+            '&:hover': {
+              background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
+            },
+          }}
+        >
+          {isLoading ? <CircularProgress size={20} /> : (isEditing ? '更新' : '作成')}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 };
 
