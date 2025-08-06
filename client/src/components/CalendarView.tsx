@@ -33,6 +33,8 @@ import interactionPlugin from '@fullcalendar/interaction';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
+import { useAuth } from '../contexts/AuthContext';
+import { setupRealtimeListener, saveTask, updateTask, deleteTask } from '../firebase';
 
 interface Task {
   id: string;
@@ -59,6 +61,7 @@ interface CalendarEvent {
 }
 
 const CalendarView: React.FC = () => {
+  const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
@@ -66,19 +69,19 @@ const CalendarView: React.FC = () => {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   useEffect(() => {
-    loadTasks();
-  }, []);
+    if (!user?.id) return;
+
+    // Firebaseのリアルタイムリスナーを設定
+    const unsubscribe = setupRealtimeListener(user.id, (firebaseTasks) => {
+      setTasks(firebaseTasks);
+    });
+
+    return () => unsubscribe();
+  }, [user?.id]);
 
   useEffect(() => {
     convertTasksToEvents();
   }, [tasks]);
-
-  const loadTasks = () => {
-    const savedTasks = localStorage.getItem('tasks');
-    if (savedTasks) {
-      setTasks(JSON.parse(savedTasks));
-    }
-  };
 
   const convertTasksToEvents = () => {
     const calendarEvents: CalendarEvent[] = tasks.map(task => {
@@ -135,27 +138,42 @@ const CalendarView: React.FC = () => {
     setDialogOpen(true);
   };
 
-  const handleSaveTask = () => {
-    if (!editingTask) return;
+  const handleSaveTask = async () => {
+    if (!editingTask || !user?.id) return;
 
-    const updatedTasks = editingTask.id
-      ? tasks.map(task => task.id === editingTask.id ? editingTask : task)
-      : [...tasks, editingTask];
-
-    localStorage.setItem('tasks', JSON.stringify(updatedTasks));
-    setTasks(updatedTasks);
-    setDialogOpen(false);
-    setEditingTask(null);
+    try {
+      if (editingTask.id && editingTask.title) {
+        if (editingTask.id.includes('temp')) {
+          // 新しいタスクの場合
+          const newTask = {
+            ...editingTask,
+            id: Date.now().toString(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          await saveTask(user.id, newTask);
+        } else {
+          // 既存タスクの更新
+          await updateTask(user.id, editingTask.id, editingTask);
+        }
+      }
+      setDialogOpen(false);
+      setEditingTask(null);
+    } catch (error) {
+      console.error('タスクの保存に失敗しました:', error);
+    }
   };
 
-  const handleDeleteTask = () => {
-    if (!editingTask) return;
+  const handleDeleteTask = async () => {
+    if (!editingTask || !user?.id) return;
 
-    const updatedTasks = tasks.filter(task => task.id !== editingTask.id);
-    localStorage.setItem('tasks', JSON.stringify(updatedTasks));
-    setTasks(updatedTasks);
-    setDialogOpen(false);
-    setEditingTask(null);
+    try {
+      await deleteTask(user.id, editingTask.id);
+      setDialogOpen(false);
+      setEditingTask(null);
+    } catch (error) {
+      console.error('タスクの削除に失敗しました:', error);
+    }
   };
 
   const getPriorityColor = (priority: string) => {

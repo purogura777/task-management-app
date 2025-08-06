@@ -19,6 +19,15 @@ import {
   Fab,
   useTheme,
   alpha,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
   TrendingUp,
@@ -42,7 +51,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { useAuth } from '../contexts/AuthContext';
-import { setupRealtimeListener, saveTask } from '../firebase';
+import { setupRealtimeListener, saveTask, updateTask, deleteTask } from '../firebase';
 
 interface Task {
   id: string;
@@ -71,6 +80,8 @@ const Dashboard: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentFilter, setCurrentFilter] = useState<string>('');
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -147,6 +158,30 @@ const Dashboard: React.FC = () => {
     localStorage.removeItem('currentProject');
     localStorage.removeItem('currentWorkspace');
     setCurrentFilter('');
+  };
+
+  const handleTaskUpdate = async () => {
+    if (!selectedTask || !user?.id) return;
+    
+    try {
+      await updateTask(user.id, selectedTask.id, selectedTask);
+      setTaskDialogOpen(false);
+      setSelectedTask(null);
+    } catch (error) {
+      console.error('タスクの更新に失敗しました:', error);
+    }
+  };
+
+  const handleTaskDelete = async () => {
+    if (!selectedTask || !user?.id) return;
+    
+    try {
+      await deleteTask(user.id, selectedTask.id);
+      setTaskDialogOpen(false);
+      setSelectedTask(null);
+    } catch (error) {
+      console.error('タスクの削除に失敗しました:', error);
+    }
   };
 
   const todoTasks = tasks.filter(task => task.status === 'todo');
@@ -636,7 +671,8 @@ const Dashboard: React.FC = () => {
                           onClick={() => {
                             // タスクの詳細表示や編集機能を追加
                             console.log('タスクをクリックしました:', task);
-                            // ここでタスク編集ダイアログを開くなどの処理を追加
+                            setSelectedTask(task);
+                            setTaskDialogOpen(true);
                           }}>
                             <ListItemAvatar>
                               <Avatar sx={{ 
@@ -728,6 +764,116 @@ const Dashboard: React.FC = () => {
         >
           <AddIcon sx={{ fontSize: 28 }} />
         </Fab>
+
+        {/* タスク編集ダイアログ */}
+        <Dialog 
+          open={taskDialogOpen} 
+          onClose={() => setTaskDialogOpen(false)} 
+          maxWidth="sm" 
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 3,
+            },
+          }}
+        >
+          <DialogTitle>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                タスクを編集
+              </Typography>
+              <Button
+                color="error"
+                onClick={handleTaskDelete}
+                sx={{ color: 'error.main' }}
+              >
+                削除
+              </Button>
+            </Box>
+          </DialogTitle>
+          <DialogContent>
+            <Box sx={{ mt: 2 }}>
+              <TextField
+                fullWidth
+                label="タイトル"
+                value={selectedTask?.title || ''}
+                onChange={(e) => setSelectedTask(prev => prev ? { ...prev, title: e.target.value } : null)}
+                sx={{ mb: 2 }}
+                placeholder="タスクのタイトルを入力..."
+              />
+              <TextField
+                fullWidth
+                label="説明"
+                multiline
+                rows={3}
+                value={selectedTask?.description || ''}
+                onChange={(e) => setSelectedTask(prev => prev ? { ...prev, description: e.target.value } : null)}
+                sx={{ mb: 2 }}
+                placeholder="タスクの詳細を入力..."
+              />
+              <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+                <FormControl fullWidth>
+                  <InputLabel>ステータス</InputLabel>
+                  <Select
+                    value={selectedTask?.status || 'todo'}
+                    onChange={(e) => setSelectedTask(prev => prev ? { ...prev, status: e.target.value as any } : null)}
+                    label="ステータス"
+                  >
+                    <MenuItem value="todo">To Do</MenuItem>
+                    <MenuItem value="inProgress">In Progress</MenuItem>
+                    <MenuItem value="done">Done</MenuItem>
+                  </Select>
+                </FormControl>
+                <FormControl fullWidth>
+                  <InputLabel>優先度</InputLabel>
+                  <Select
+                    value={selectedTask?.priority || 'medium'}
+                    onChange={(e) => setSelectedTask(prev => prev ? { ...prev, priority: e.target.value as any } : null)}
+                    label="優先度"
+                  >
+                    <MenuItem value="low">低</MenuItem>
+                    <MenuItem value="medium">中</MenuItem>
+                    <MenuItem value="high">高</MenuItem>
+                  </Select>
+                </FormControl>
+              </Box>
+              <TextField
+                fullWidth
+                label="期限"
+                type="date"
+                value={selectedTask?.dueDate || ''}
+                onChange={(e) => setSelectedTask(prev => prev ? { ...prev, dueDate: e.target.value } : null)}
+                InputLabelProps={{ shrink: true }}
+                sx={{ mb: 2 }}
+              />
+              <TextField
+                fullWidth
+                label="担当者"
+                value={selectedTask?.assignee || ''}
+                onChange={(e) => setSelectedTask(prev => prev ? { ...prev, assignee: e.target.value } : null)}
+                placeholder="担当者の名前を入力..."
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setTaskDialogOpen(false)}>
+              キャンセル
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleTaskUpdate}
+              disabled={!selectedTask?.title}
+              sx={{
+                backgroundColor: '#007bff',
+                '&:hover': {
+                  backgroundColor: '#0056b3',
+                },
+              }}
+            >
+              保存
+            </Button>
+          </DialogActions>
+        </Dialog>
       </motion.div>
     </Box>
   );

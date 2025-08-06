@@ -41,6 +41,8 @@ import {
 import { motion } from 'framer-motion';
 import { format, addDays, differenceInDays, isAfter, isBefore, startOfDay } from 'date-fns';
 import { ja } from 'date-fns/locale';
+import { useAuth } from '../contexts/AuthContext';
+import { setupRealtimeListener, saveTask, updateTask, deleteTask } from '../firebase';
 
 interface Task {
   id: string;
@@ -56,6 +58,7 @@ interface Task {
 }
 
 const TimelineView: React.FC = () => {
+  const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -63,22 +66,21 @@ const TimelineView: React.FC = () => {
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
 
   useEffect(() => {
-    loadTasks();
-  }, []);
+    if (!user?.id) return;
 
-  const loadTasks = () => {
-    const savedTasks = localStorage.getItem('tasks');
-    if (savedTasks) {
-      const parsedTasks = JSON.parse(savedTasks);
+    // Firebaseのリアルタイムリスナーを設定
+    const unsubscribe = setupRealtimeListener(user.id, (firebaseTasks) => {
       // 開始日と終了日を設定（デモ用）
-      const tasksWithDates = parsedTasks.map((task: Task, index: number) => ({
+      const tasksWithDates = firebaseTasks.map((task: Task, index: number) => ({
         ...task,
         startDate: task.startDate || format(addDays(new Date(), index * 2), 'yyyy-MM-dd'),
         endDate: task.endDate || format(addDays(new Date(), index * 2 + 1), 'yyyy-MM-dd'),
       }));
       setTasks(tasksWithDates);
-    }
-  };
+    });
+
+    return () => unsubscribe();
+  }, [user?.id]);
 
   const getTimelineRange = () => {
     const today = new Date();
@@ -139,27 +141,42 @@ const TimelineView: React.FC = () => {
     }
   };
 
-  const handleSaveTask = () => {
-    if (!editingTask) return;
+  const handleSaveTask = async () => {
+    if (!editingTask || !user?.id) return;
 
-    const updatedTasks = editingTask.id
-      ? tasks.map(task => task.id === editingTask.id ? editingTask : task)
-      : [...tasks, editingTask];
-
-    localStorage.setItem('tasks', JSON.stringify(updatedTasks));
-    setTasks(updatedTasks);
-    setDialogOpen(false);
-    setEditingTask(null);
+    try {
+      if (editingTask.id && editingTask.title) {
+        if (editingTask.id.includes('temp')) {
+          // 新しいタスクの場合
+          const newTask = {
+            ...editingTask,
+            id: Date.now().toString(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          await saveTask(user.id, newTask);
+        } else {
+          // 既存タスクの更新
+          await updateTask(user.id, editingTask.id, editingTask);
+        }
+      }
+      setDialogOpen(false);
+      setEditingTask(null);
+    } catch (error) {
+      console.error('タスクの保存に失敗しました:', error);
+    }
   };
 
-  const handleDeleteTask = () => {
-    if (!editingTask) return;
+  const handleDeleteTask = async () => {
+    if (!editingTask || !user?.id) return;
 
-    const updatedTasks = tasks.filter(task => task.id !== editingTask.id);
-    localStorage.setItem('tasks', JSON.stringify(updatedTasks));
-    setTasks(updatedTasks);
-    setDialogOpen(false);
-    setEditingTask(null);
+    try {
+      await deleteTask(user.id, editingTask.id);
+      setDialogOpen(false);
+      setEditingTask(null);
+    } catch (error) {
+      console.error('タスクの削除に失敗しました:', error);
+    }
   };
 
   const timelineDays = getTimelineDays();

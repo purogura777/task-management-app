@@ -48,6 +48,8 @@ import {
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
+import { useAuth } from '../contexts/AuthContext';
+import { setupRealtimeListener, saveTask, updateTask, deleteTask } from '../firebase';
 
 interface Task {
   id: string;
@@ -64,6 +66,7 @@ type Order = 'asc' | 'desc';
 type OrderBy = 'title' | 'status' | 'priority' | 'dueDate' | 'assignee' | 'createdAt';
 
 const ListView: React.FC = () => {
+  const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [filteredTasks, setFilteredTasks] = useState<Task[]>([]);
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
@@ -78,19 +81,19 @@ const ListView: React.FC = () => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
   useEffect(() => {
-    loadTasks();
-  }, []);
+    if (!user?.id) return;
+
+    // Firebaseのリアルタイムリスナーを設定
+    const unsubscribe = setupRealtimeListener(user.id, (firebaseTasks) => {
+      setTasks(firebaseTasks);
+    });
+
+    return () => unsubscribe();
+  }, [user?.id]);
 
   useEffect(() => {
     filterAndSortTasks();
   }, [tasks, searchTerm, statusFilter, priorityFilter, order, orderBy]);
-
-  const loadTasks = () => {
-    const savedTasks = localStorage.getItem('tasks');
-    if (savedTasks) {
-      setTasks(JSON.parse(savedTasks));
-    }
-  };
 
   const filterAndSortTasks = () => {
     let filtered = tasks.filter(task => {
@@ -161,34 +164,55 @@ const ListView: React.FC = () => {
 
   const isSelected = (id: string) => selectedTasks.indexOf(id) !== -1;
 
-  const handleSaveTask = () => {
-    if (!editingTask) return;
+  const handleSaveTask = async () => {
+    if (!editingTask || !user?.id) return;
 
-    const updatedTasks = editingTask.id
-      ? tasks.map(task => task.id === editingTask.id ? editingTask : task)
-      : [...tasks, editingTask];
-
-    localStorage.setItem('tasks', JSON.stringify(updatedTasks));
-    setTasks(updatedTasks);
-    setDialogOpen(false);
-    setEditingTask(null);
+    try {
+      if (editingTask.id && editingTask.title) {
+        if (editingTask.id.includes('temp')) {
+          // 新しいタスクの場合
+          const newTask = {
+            ...editingTask,
+            id: Date.now().toString(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          await saveTask(user.id, newTask);
+        } else {
+          // 既存タスクの更新
+          await updateTask(user.id, editingTask.id, editingTask);
+        }
+      }
+      setDialogOpen(false);
+      setEditingTask(null);
+    } catch (error) {
+      console.error('タスクの保存に失敗しました:', error);
+    }
   };
 
-  const handleDeleteTask = () => {
-    if (!editingTask) return;
+  const handleDeleteTask = async () => {
+    if (!editingTask || !user?.id) return;
 
-    const updatedTasks = tasks.filter(task => task.id !== editingTask.id);
-    localStorage.setItem('tasks', JSON.stringify(updatedTasks));
-    setTasks(updatedTasks);
-    setDialogOpen(false);
-    setEditingTask(null);
+    try {
+      await deleteTask(user.id, editingTask.id);
+      setDialogOpen(false);
+      setEditingTask(null);
+    } catch (error) {
+      console.error('タスクの削除に失敗しました:', error);
+    }
   };
 
-  const handleDeleteSelected = () => {
-    const updatedTasks = tasks.filter(task => !selectedTasks.includes(task.id));
-    localStorage.setItem('tasks', JSON.stringify(updatedTasks));
-    setTasks(updatedTasks);
-    setSelectedTasks([]);
+  const handleDeleteSelected = async () => {
+    if (!user?.id) return;
+
+    try {
+      for (const taskId of selectedTasks) {
+        await deleteTask(user.id, taskId);
+      }
+      setSelectedTasks([]);
+    } catch (error) {
+      console.error('選択されたタスクの削除に失敗しました:', error);
+    }
   };
 
   const getPriorityColor = (priority: string) => {
