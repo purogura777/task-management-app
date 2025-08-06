@@ -93,6 +93,7 @@ const Dashboard: React.FC = () => {
     // テスト用：初回アクセス時にサンプルデータを追加
     const hasVisited = localStorage.getItem('hasVisited');
     if (!hasVisited) {
+      console.log('サンプルデータを追加中...');
       const sampleTasks = [
         {
           id: '1',
@@ -129,7 +130,11 @@ const Dashboard: React.FC = () => {
         }
       ];
       
-      // サンプルデータを保存
+      // サンプルデータをローカルストレージに直接保存
+      localStorage.setItem(`tasks_${user.id}`, JSON.stringify(sampleTasks));
+      console.log('サンプルデータをローカルストレージに保存しました');
+      
+      // saveTask関数も呼び出し（フォールバック用）
       sampleTasks.forEach(task => {
         saveTask(user.id, task);
       });

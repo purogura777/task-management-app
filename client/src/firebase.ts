@@ -36,10 +36,13 @@ export const setupRealtimeListener = (userId: string, callback: (tasks: any[]) =
     if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
       console.log('Firebase設定がダミーのため、ローカルストレージを使用します');
       const savedTasks = localStorage.getItem(`tasks_${userId}`);
+      console.log('ローカルストレージから取得したタスク:', savedTasks);
       if (savedTasks) {
         const tasks = JSON.parse(savedTasks);
+        console.log('パースしたタスク:', tasks);
         callback(tasks);
       } else {
+        console.log('ローカルストレージにタスクがありません');
         callback([]);
       }
       return () => {};
@@ -171,6 +174,7 @@ export const deleteTask = async (userId: string, taskId: string) => {
         const tasks = JSON.parse(savedTasks);
         const filteredTasks = tasks.filter((task: any) => task.id !== taskId);
         localStorage.setItem(`tasks_${userId}`, JSON.stringify(filteredTasks));
+        console.log('ローカルストレージからタスクを削除しました');
       }
       return;
     }
@@ -179,7 +183,7 @@ export const deleteTask = async (userId: string, taskId: string) => {
     await deleteDoc(taskRef);
     console.log('タスク削除成功');
     
-    // ローカルストレージからも削除
+    // ローカルストレージからも削除（バックアップ）
     const savedTasks = localStorage.getItem(`tasks_${userId}`);
     if (savedTasks) {
       const tasks = JSON.parse(savedTasks);
