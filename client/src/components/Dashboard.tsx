@@ -52,6 +52,7 @@ import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { useAuth } from '../contexts/AuthContext';
 import { setupRealtimeListener, saveTask, updateTask, deleteTask } from '../firebase';
+import toast from 'react-hot-toast';
 
 interface Task {
   id: string;
@@ -62,6 +63,8 @@ interface Task {
   dueDate: string;
   assignee: string;
   createdAt: string;
+  project?: string;
+  workspace?: string;
 }
 
 interface StatCard {
@@ -82,9 +85,29 @@ const Dashboard: React.FC = () => {
   const [currentFilter, setCurrentFilter] = useState<string>('');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [currentProject, setCurrentProject] = useState<string>('個人プロジェクト');
+  const [currentWorkspace, setCurrentWorkspace] = useState<string>('個人プロジェクト');
 
   useEffect(() => {
     if (!user?.id) return;
+
+    // デフォルトのプロジェクト/ワークスペースを設定
+    const savedProject = localStorage.getItem('currentProject');
+    const savedWorkspace = localStorage.getItem('currentWorkspace');
+    
+    if (!savedProject) {
+      localStorage.setItem('currentProject', '個人プロジェクト');
+      setCurrentProject('個人プロジェクト');
+    } else {
+      setCurrentProject(savedProject);
+    }
+    
+    if (!savedWorkspace) {
+      localStorage.setItem('currentWorkspace', '個人プロジェクト');
+      setCurrentWorkspace('個人プロジェクト');
+    } else {
+      setCurrentWorkspace(savedWorkspace);
+    }
 
     // Firebaseのリアルタイムリスナーを設定
     const unsubscribe = setupRealtimeListener(user.id, (firebaseTasks) => {
@@ -94,11 +117,8 @@ const Dashboard: React.FC = () => {
 
     // ローカルストレージからフィルター情報を読み込み
     const filteredTasks = localStorage.getItem('filteredTasks');
-    const currentProject = localStorage.getItem('currentProject');
-    const currentWorkspace = localStorage.getItem('currentWorkspace');
-    
-    if (filteredTasks && (currentProject || currentWorkspace)) {
-      setCurrentFilter(currentProject || currentWorkspace || '');
+    if (filteredTasks) {
+      setCurrentFilter(savedProject || savedWorkspace || '');
     }
 
     // テスト用：初回アクセス時にサンプルデータを追加
@@ -116,6 +136,8 @@ const Dashboard: React.FC = () => {
           assignee: user.name || '未設定',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
+          project: '仕事',
+          workspace: 'チームA',
         },
         {
           id: 'sample_2',
@@ -127,6 +149,8 @@ const Dashboard: React.FC = () => {
           assignee: user.name || '未設定',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
+          project: '学習',
+          workspace: 'プロジェクトX',
         },
         {
           id: 'sample_3',
@@ -138,6 +162,8 @@ const Dashboard: React.FC = () => {
           assignee: user.name || '未設定',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
+          project: '仕事',
+          workspace: 'チームA',
         }
       ];
       
@@ -153,22 +179,68 @@ const Dashboard: React.FC = () => {
     return () => unsubscribe();
   }, [user?.id]);
 
+  // フィルタリングされたタスクを取得
+  const getFilteredTasks = () => {
+    if (!currentProject && !currentWorkspace) {
+      return tasks;
+    }
+
+    return tasks.filter(task => {
+      // プロジェクトフィルタリング
+      if (currentProject) {
+        switch (currentProject) {
+          case '個人プロジェクト':
+            return !task.assignee || task.assignee === '個人' || task.assignee === 'デモユーザー';
+          case '仕事':
+            return task.assignee === '仕事' || task.priority === 'high';
+          case '学習':
+            return task.assignee === '学習' || task.priority === 'medium';
+          default:
+            return true;
+        }
+      }
+
+      // ワークスペースフィルタリング
+      if (currentWorkspace) {
+        switch (currentWorkspace) {
+          case '個人プロジェクト':
+            return !task.assignee || task.assignee === '個人' || task.assignee === 'デモユーザー';
+          case 'チームA':
+            return task.assignee === 'チームA' || task.status === 'inProgress';
+          case 'プロジェクトX':
+            return task.assignee === 'プロジェクトX' || task.priority === 'high';
+          default:
+            return true;
+        }
+      }
+
+      return true;
+    });
+  };
+
+  const filteredTasks = getFilteredTasks();
+
   const clearFilter = () => {
+    setCurrentFilter('');
     localStorage.removeItem('filteredTasks');
     localStorage.removeItem('currentProject');
     localStorage.removeItem('currentWorkspace');
-    setCurrentFilter('');
+    setCurrentProject('個人プロジェクト');
+    setCurrentWorkspace('個人プロジェクト');
   };
 
   const handleTaskUpdate = async () => {
     if (!selectedTask || !user?.id) return;
     
     try {
-      await updateTask(user.id, selectedTask.id, selectedTask);
+      const { id, ...updates } = selectedTask;
+      await updateTask(user.id, id, updates);
+      toast.success('タスクを更新しました');
       setTaskDialogOpen(false);
       setSelectedTask(null);
     } catch (error) {
       console.error('タスクの更新に失敗しました:', error);
+      toast.error('タスクの更新に失敗しました');
     }
   };
 
@@ -177,26 +249,28 @@ const Dashboard: React.FC = () => {
     
     try {
       await deleteTask(user.id, selectedTask.id);
+      toast.success('タスクを削除しました');
       setTaskDialogOpen(false);
       setSelectedTask(null);
     } catch (error) {
       console.error('タスクの削除に失敗しました:', error);
+      toast.error('タスクの削除に失敗しました');
     }
   };
 
-  const todoTasks = tasks.filter(task => task.status === 'todo');
-  const inProgressTasks = tasks.filter(task => task.status === 'inProgress');
-  const doneTasks = tasks.filter(task => task.status === 'done');
-  const overdueTasks = tasks.filter(task => 
+  const todoTasks = filteredTasks.filter(task => task.status === 'todo');
+  const inProgressTasks = filteredTasks.filter(task => task.status === 'inProgress');
+  const doneTasks = filteredTasks.filter(task => task.status === 'done');
+  const overdueTasks = filteredTasks.filter(task => 
     new Date(task.dueDate) < new Date() && task.status !== 'done'
   );
 
-  const completionRate = tasks.length > 0 ? (doneTasks.length / tasks.length) * 100 : 0;
+  const completionRate = filteredTasks.length > 0 ? (doneTasks.length / filteredTasks.length) * 100 : 0;
 
   const statCards: StatCard[] = [
     {
       title: '総タスク数',
-      value: tasks.length,
+      value: filteredTasks.length,
       change: 0,
       icon: <Assignment />,
       color: '#6366f1',
@@ -228,7 +302,7 @@ const Dashboard: React.FC = () => {
     },
   ];
 
-  const recentTasks = tasks
+  const recentTasks = filteredTasks
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 5);
 
@@ -320,7 +394,7 @@ const Dashboard: React.FC = () => {
         </Box>
 
         {/* フィルター表示 */}
-        {currentFilter && (
+        {(currentProject || currentWorkspace) && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -344,7 +418,7 @@ const Dashboard: React.FC = () => {
                     📁
                   </Avatar>
                   <Typography variant="h6" sx={{ color: 'white', fontWeight: 600 }}>
-                    {currentFilter} のタスクを表示中
+                    {currentProject || currentWorkspace} のタスクを表示中 ({filteredTasks.length}件)
                   </Typography>
                 </Box>
                 <Button

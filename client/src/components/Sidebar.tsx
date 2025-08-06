@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Drawer,
   List,
@@ -33,6 +33,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { setupRealtimeListener } from '../firebase';
 
 interface SidebarProps {
   open: boolean;
@@ -46,6 +47,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
   const { isDarkMode, toggleTheme } = useTheme();
   const [currentProject, setCurrentProject] = useState<string | null>(null);
   const [currentWorkspace, setCurrentWorkspace] = useState<string | null>(null);
+  const [tasks, setTasks] = useState<any[]>([]);
 
   const menuItems = [
     {
@@ -103,14 +105,17 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
 
   // タスク数を動的に計算
   const calculateTaskCount = (filterType: string, filterValue: string) => {
-    const allTasks = JSON.parse(localStorage.getItem('tasks') || '[]');
-    return allTasks.filter((task: any) => {
+    return tasks.filter((task: any) => {
       if (filterType === 'assignee') {
         return task.assignee === filterValue;
       } else if (filterType === 'status') {
         return task.status === filterValue;
       } else if (filterType === 'priority') {
         return task.priority === filterValue;
+      } else if (filterType === 'project') {
+        return task.project === filterValue;
+      } else if (filterType === 'workspace') {
+        return task.workspace === filterValue;
       }
       return false;
     }).length;
@@ -118,15 +123,21 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
 
   // バッジ数を更新
   const updateBadgeCounts = () => {
-    workspaceItems[0].badge = calculateTaskCount('assignee', '個人');
+    workspaceItems[0].badge = calculateTaskCount('assignee', 'デモユーザー') + calculateTaskCount('assignee', '個人');
     workspaceItems[1].badge = calculateTaskCount('status', 'inProgress');
     workspaceItems[2].badge = calculateTaskCount('priority', 'high');
   };
 
   // コンポーネントマウント時にバッジ数を計算し、現在の選択状態を復元
-  React.useEffect(() => {
-    updateBadgeCounts();
-    
+  useEffect(() => {
+    if (!user?.id) return;
+
+    // Firebaseのリアルタイムリスナーを設定
+    const unsubscribe = setupRealtimeListener(user.id, (firebaseTasks) => {
+      setTasks(firebaseTasks);
+      updateBadgeCounts();
+    });
+
     // 現在の選択状態を復元
     const savedProject = localStorage.getItem('currentProject');
     const savedWorkspace = localStorage.getItem('currentWorkspace');
@@ -137,10 +148,12 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
     if (savedWorkspace) {
       setCurrentWorkspace(savedWorkspace);
     }
-  }, []);
+
+    return () => unsubscribe();
+  }, [user?.id]);
 
   // 選択状態の変更を監視
-  React.useEffect(() => {
+  useEffect(() => {
     const savedProject = localStorage.getItem('currentProject');
     const savedWorkspace = localStorage.getItem('currentWorkspace');
     
@@ -165,21 +178,20 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
     setCurrentWorkspace(null);
     
     // プロジェクト固有のタスクをフィルタリング
-    const allTasks = JSON.parse(localStorage.getItem('tasks') || '[]');
     let filteredTasks = [];
     
     switch (projectName) {
       case '個人プロジェクト':
-        filteredTasks = allTasks.filter((task: any) => !task.assignee || task.assignee === '個人');
+        filteredTasks = tasks.filter((task: any) => !task.assignee || task.assignee === '個人' || task.assignee === 'デモユーザー');
         break;
       case '仕事':
-        filteredTasks = allTasks.filter((task: any) => task.assignee === '仕事' || task.priority === 'high');
+        filteredTasks = tasks.filter((task: any) => task.assignee === '仕事' || task.priority === 'high');
         break;
       case '学習':
-        filteredTasks = allTasks.filter((task: any) => task.assignee === '学習' || task.priority === 'medium');
+        filteredTasks = tasks.filter((task: any) => task.assignee === '学習' || task.priority === 'medium');
         break;
       default:
-        filteredTasks = allTasks;
+        filteredTasks = tasks;
     }
     
     // フィルタリング結果をローカルストレージに保存
@@ -207,21 +219,20 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
     setCurrentProject(null);
     
     // ワークスペース固有のタスクをフィルタリング
-    const allTasks = JSON.parse(localStorage.getItem('tasks') || '[]');
     let filteredTasks = [];
     
     switch (workspaceName) {
       case '個人プロジェクト':
-        filteredTasks = allTasks.filter((task: any) => !task.assignee || task.assignee === '個人');
+        filteredTasks = tasks.filter((task: any) => !task.assignee || task.assignee === '個人' || task.assignee === 'デモユーザー');
         break;
       case 'チームA':
-        filteredTasks = allTasks.filter((task: any) => task.assignee === 'チームA' || task.status === 'inProgress');
+        filteredTasks = tasks.filter((task: any) => task.assignee === 'チームA' || task.status === 'inProgress');
         break;
       case 'プロジェクトX':
-        filteredTasks = allTasks.filter((task: any) => task.assignee === 'プロジェクトX' || task.priority === 'high');
+        filteredTasks = tasks.filter((task: any) => task.assignee === 'プロジェクトX' || task.priority === 'high');
         break;
       default:
-        filteredTasks = allTasks;
+        filteredTasks = tasks;
     }
     
     // フィルタリング結果をローカルストレージに保存

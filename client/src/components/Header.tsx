@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   AppBar,
   Toolbar,
@@ -33,9 +33,19 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion } from 'framer-motion';
+import { setupRealtimeListener } from '../firebase';
 
 interface HeaderProps {
   onMenuClick: () => void;
+}
+
+interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  time: string;
+  read: boolean;
+  type: 'task' | 'system' | 'team';
 }
 
 const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
@@ -44,6 +54,8 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   const { isDarkMode, toggleTheme } = useTheme();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [notificationAnchorEl, setNotificationAnchorEl] = useState<null | HTMLElement>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [tasks, setTasks] = useState<any[]>([]);
 
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -74,29 +86,86 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
     handleMenuClose();
   };
 
-  const notifications = [
-    {
-      id: 1,
-      title: '新しいタスクが割り当てられました',
-      message: 'プロジェクトAのタスク「UIデザインの改善」が割り当てられました',
-      time: '5分前',
-      read: false,
-    },
-    {
-      id: 2,
-      title: 'タスクの期限が近づいています',
-      message: '「データベース設計」の期限が明日です',
-      time: '1時間前',
-      read: false,
-    },
-    {
-      id: 3,
-      title: 'チームメンバーが参加しました',
-      message: '田中さんがプロジェクトBに参加しました',
-      time: '2時間前',
-      read: true,
-    },
-  ];
+  const handleNotificationClick = (notificationId: string) => {
+    setNotifications(prev => 
+      prev.map(notification => 
+        notification.id === notificationId 
+          ? { ...notification, read: true }
+          : notification
+      )
+    );
+  };
+
+  const handleMarkAllAsRead = () => {
+    setNotifications(prev => 
+      prev.map(notification => ({ ...notification, read: true }))
+    );
+  };
+
+  // タスクから通知を生成
+  const generateNotificationsFromTasks = (tasks: any[]) => {
+    const newNotifications: Notification[] = [];
+    const now = new Date();
+
+    // 期限が近いタスクの通知
+    tasks.forEach(task => {
+      const dueDate = new Date(task.dueDate);
+      const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (daysUntilDue <= 1 && daysUntilDue >= 0 && task.status !== 'done') {
+        newNotifications.push({
+          id: `due-${task.id}`,
+          title: 'タスクの期限が近づいています',
+          message: `「${task.title}」の期限が${daysUntilDue === 0 ? '今日' : '明日'}です`,
+          time: daysUntilDue === 0 ? '今日' : '明日',
+          read: false,
+          type: 'task'
+        });
+      }
+    });
+
+    // 新しく作成されたタスクの通知
+    const recentTasks = tasks.filter(task => {
+      const createdAt = new Date(task.createdAt);
+      const hoursSinceCreated = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
+      return hoursSinceCreated <= 24;
+    });
+
+    recentTasks.forEach(task => {
+      newNotifications.push({
+        id: `new-${task.id}`,
+        title: '新しいタスクが作成されました',
+        message: `「${task.title}」が作成されました`,
+        time: '新着',
+        read: false,
+        type: 'task'
+      });
+    });
+
+    return newNotifications;
+  };
+
+  // タスクの監視と通知の生成
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const unsubscribe = setupRealtimeListener(user.id, (firebaseTasks) => {
+      setTasks(firebaseTasks);
+      
+      // 既存の通知を保持しつつ、新しい通知を追加
+      const existingNotifications = notifications.filter(n => n.type !== 'task');
+      const taskNotifications = generateNotificationsFromTasks(firebaseTasks);
+      
+      // 重複を避けるために、既存のタスク通知を除去
+      const uniqueTaskNotifications = taskNotifications.filter(newNotif => 
+        !existingNotifications.some(existing => existing.id === newNotif.id)
+      );
+      
+      setNotifications([...existingNotifications, ...uniqueTaskNotifications]);
+    });
+
+    return () => unsubscribe();
+  }, [user?.id]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -271,14 +340,29 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
             },
           }}
         >
-          <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+          <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
               通知
             </Typography>
+            {unreadCount > 0 && (
+              <Typography 
+                variant="body2" 
+                sx={{ 
+                  color: '#6366f1', 
+                  cursor: 'pointer',
+                  fontWeight: 500,
+                  '&:hover': { textDecoration: 'underline' }
+                }}
+                onClick={handleMarkAllAsRead}
+              >
+                すべて既読にする
+              </Typography>
+            )}
           </Box>
           {notifications.map((notification) => (
             <MenuItem
               key={notification.id}
+              onClick={() => handleNotificationClick(notification.id)}
               sx={{
                 py: 1.5,
                 px: 2,
@@ -286,10 +370,15 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                 '&:hover': {
                   backgroundColor: '#f8f9fa',
                 },
+                cursor: 'pointer',
               }}
             >
               <Box sx={{ width: '100%' }}>
-                <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5, color: '#1a1a1a' }}>
+                <Typography variant="body2" sx={{ 
+                  fontWeight: 500, 
+                  mb: 0.5, 
+                  color: notification.read ? '#6c757d' : '#1a1a1a' 
+                }}>
                   {notification.title}
                 </Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.4 }}>
