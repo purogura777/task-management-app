@@ -42,7 +42,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { useAuth } from '../contexts/AuthContext';
-import { setupRealtimeListener, updateTask, deleteTask } from '../firebase';
+import { setupRealtimeListener, updateTask, deleteTask, saveTask } from '../firebase';
 
 interface Task {
   id: string;
@@ -159,8 +159,20 @@ const KanbanBoard: React.FC = () => {
     if (!editingTask || !user?.id) return;
 
     try {
-      if (editingTask.id) {
-        await updateTask(user.id, editingTask.id, editingTask);
+      if (editingTask.id && editingTask.title) {
+        if (editingTask.id.includes('temp')) {
+          // 新しいタスクの場合
+          const newTask = {
+            ...editingTask,
+            id: Date.now().toString(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          await saveTask(user.id, newTask);
+        } else {
+          // 既存タスクの更新
+          await updateTask(user.id, editingTask.id, editingTask);
+        }
       }
       setDialogOpen(false);
       setEditingTask(null);
@@ -281,20 +293,20 @@ const KanbanBoard: React.FC = () => {
                     <Tooltip title="新しいタスク">
                       <IconButton
                         size="small"
-                        onClick={() => {
-                          const newTask: Task = {
-                            id: Date.now().toString(),
-                            title: '',
-                            description: '',
-                            status: column.id as any,
-                            priority: 'medium',
-                            dueDate: format(new Date(), 'yyyy-MM-dd'),
-                            assignee: '',
-                            createdAt: new Date().toISOString(),
-                          };
-                          setEditingTask(newTask);
-                          setDialogOpen(true);
-                        }}
+                                                 onClick={() => {
+                           const newTask: Task = {
+                             id: `temp_${Date.now()}`,
+                             title: '',
+                             description: '',
+                             status: column.id as any,
+                             priority: 'medium',
+                             dueDate: format(new Date(), 'yyyy-MM-dd'),
+                             assignee: '',
+                             createdAt: new Date().toISOString(),
+                           };
+                           setEditingTask(newTask);
+                           setDialogOpen(true);
+                         }}
                         sx={{
                           backgroundColor: column.color,
                           color: 'white',
@@ -473,12 +485,16 @@ const KanbanBoard: React.FC = () => {
                                                 <IconButton
                                                   size="small"
                                                   color="error"
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    const updatedTasks = tasks.filter(t => t.id !== task.id);
-                                                    localStorage.setItem('tasks', JSON.stringify(updatedTasks));
-                                                    setTasks(updatedTasks);
-                                                  }}
+                                                                                                   onClick={async (e) => {
+                                                   e.stopPropagation();
+                                                   try {
+                                                     if (user?.id) {
+                                                       await deleteTask(user.id, task.id);
+                                                     }
+                                                   } catch (error) {
+                                                     console.error('タスクの削除に失敗しました:', error);
+                                                   }
+                                                 }}
                                                   sx={{ 
                                                     width: 24, 
                                                     height: 24,
@@ -515,20 +531,20 @@ const KanbanBoard: React.FC = () => {
         <Fab
           color="primary"
           aria-label="新しいタスク"
-          onClick={() => {
-            const newTask: Task = {
-              id: Date.now().toString(),
-              title: '',
-              description: '',
-              status: 'todo',
-              priority: 'medium',
-              dueDate: format(new Date(), 'yyyy-MM-dd'),
-              assignee: '',
-              createdAt: new Date().toISOString(),
-            };
-            setEditingTask(newTask);
-            setDialogOpen(true);
-          }}
+                     onClick={() => {
+             const newTask: Task = {
+               id: `temp_${Date.now()}`,
+               title: '',
+               description: '',
+               status: 'todo',
+               priority: 'medium',
+               dueDate: format(new Date(), 'yyyy-MM-dd'),
+               assignee: '',
+               createdAt: new Date().toISOString(),
+             };
+             setEditingTask(newTask);
+             setDialogOpen(true);
+           }}
           sx={{
             position: 'fixed',
             bottom: 24,
