@@ -21,6 +21,9 @@ import TaskForm from './components/TaskForm';
 import Settings from './components/Settings';
 import Login from './components/Login';
 import Profile from './components/Profile';
+import PomodoroTimer from './components/PomodoroTimer';
+import MindMapView from './components/MindMapView';
+import TaskFormPage from './components/TaskFormPage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider as CustomThemeProvider, useTheme } from './contexts/ThemeContext';
 
@@ -122,8 +125,10 @@ function AppContent() {
                   <Route path="/calendar" element={<CalendarView />} />
                   <Route path="/timeline" element={<TimelineView />} />
                   <Route path="/list" element={<ListView />} />
-                  <Route path="/task/new" element={<TaskForm />} />
-                  <Route path="/task/edit/:id" element={<TaskForm />} />
+                  <Route path="/pomodoro" element={<PomodoroTimer />} />
+                  <Route path="/mindmap" element={<MindMapView />} />
+                  <Route path="/task/new" element={<TaskFormPage />} />
+                  <Route path="/task/edit/:id" element={<TaskFormPage />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/profile" element={<Profile />} />
                   <Route path="/login" element={<Login />} />

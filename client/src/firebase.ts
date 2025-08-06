@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, onSnapshot, collection, doc, setDoc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import { secureLocalStorage, SecurityLogger } from './utils/security';
 
 // Firebase設定 - 実際のプロジェクトの設定に置き換えてください
 // Firebase Console (https://console.firebase.google.com/) でプロジェクトを作成し、
@@ -29,15 +30,15 @@ export const storage = getStorage(app);
 
 // ローカルストレージの重複データをクリアする関数
 const clearDuplicateTasks = (userId: string) => {
-  const savedTasks = localStorage.getItem(`tasks_${userId}`);
+  const savedTasks = secureLocalStorage.getItem(`tasks_${userId}`);
   if (savedTasks) {
-    const tasks = JSON.parse(savedTasks);
+    const tasks = savedTasks;
     const uniqueTasks = tasks.filter((task: any, index: number, self: any[]) => 
       index === self.findIndex((t: any) => t.id === task.id)
     );
     if (uniqueTasks.length !== tasks.length) {
       console.log('重複データをクリアしました');
-      localStorage.setItem(`tasks_${userId}`, JSON.stringify(uniqueTasks));
+      secureLocalStorage.setItem(`tasks_${userId}`, uniqueTasks);
       return uniqueTasks;
     }
   }
@@ -56,10 +57,9 @@ export const setupRealtimeListener = (userId: string, callback: (tasks: any[]) =
       // 重複データをクリア
       const cleanedTasks = clearDuplicateTasks(userId);
       
-      const savedTasks = localStorage.getItem(`tasks_${userId}`);
+      const savedTasks = secureLocalStorage.getItem(`tasks_${userId}`);
       if (savedTasks) {
-        const tasks = JSON.parse(savedTasks);
-        callback(tasks);
+        callback(savedTasks);
       } else {
         callback([]);
       }
@@ -77,6 +77,10 @@ export const setupRealtimeListener = (userId: string, callback: (tasks: any[]) =
       
       // 定期的にローカルストレージをチェック（簡易的なリアルタイム更新）
       const interval = setInterval(checkForUpdates, 2000); // 間隔を2秒に変更
+      
+      // セキュリティログ
+      const securityLogger = SecurityLogger.getInstance();
+      securityLogger.log('info', 'Firebaseリスナーを設定しました', { userId });
       
       return () => {
         clearInterval(interval);
@@ -105,10 +109,9 @@ export const setupRealtimeListener = (userId: string, callback: (tasks: any[]) =
   } catch (error) {
     console.error('Firebaseリスナーの設定に失敗しました:', error);
     // エラーが発生した場合はローカルストレージから読み込み
-    const savedTasks = localStorage.getItem(`tasks_${userId}`);
+    const savedTasks = secureLocalStorage.getItem(`tasks_${userId}`);
     if (savedTasks) {
-      const tasks = JSON.parse(savedTasks);
-      callback(tasks);
+      callback(savedTasks);
     }
     return () => {};
   }
@@ -122,8 +125,8 @@ export const saveTask = async (userId: string, task: any) => {
     // Firebaseが設定されていない場合はローカルストレージのみ使用
     if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
       console.log('Firebase設定がダミーのため、ローカルストレージに保存します');
-      const savedTasks = localStorage.getItem(`tasks_${userId}`);
-      const tasks = savedTasks ? JSON.parse(savedTasks) : [];
+      const savedTasks = secureLocalStorage.getItem(`tasks_${userId}`);
+      const tasks = savedTasks || [];
       
       // 既存のタスクを更新するか、新しいタスクを追加する
       const existingTaskIndex = tasks.findIndex((t: any) => t.id === task.id);
@@ -137,7 +140,12 @@ export const saveTask = async (userId: string, task: any) => {
         console.log('新しいタスクを追加しました');
       }
       
-      localStorage.setItem(`tasks_${userId}`, JSON.stringify(tasks));
+      secureLocalStorage.setItem(`tasks_${userId}`, tasks);
+      
+      // セキュリティログ
+      const securityLogger = SecurityLogger.getInstance();
+      securityLogger.log('info', 'タスクを保存しました', { taskId: task.id, userId });
+      
       return;
     }
     

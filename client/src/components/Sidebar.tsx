@@ -28,6 +28,8 @@ import {
   School,
   Add as AddIcon,
   Delete,
+  Timer,
+  AccountTree,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -79,6 +81,18 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
       text: 'リスト',
       icon: <ListIcon />,
       path: '/list',
+      badge: null,
+    },
+    {
+      text: 'ポモドーロ',
+      icon: <Timer />,
+      path: '/pomodoro',
+      badge: null,
+    },
+    {
+      text: 'マインドマップ',
+      icon: <AccountTree />,
+      path: '/mindmap',
       badge: null,
     },
   ];
