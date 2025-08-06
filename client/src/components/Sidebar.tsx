@@ -27,6 +27,7 @@ import {
   Work,
   School,
   Add as AddIcon,
+  Delete,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -103,6 +104,77 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
     },
   ];
 
+  const projectItems = [
+    {
+      text: '個人プロジェクト',
+      icon: <PersonIcon />,
+      path: '/project/personal',
+      badge: 0,
+    },
+    {
+      text: '仕事',
+      icon: <Work />,
+      path: '/project/work',
+      badge: 0,
+    },
+    {
+      text: '学習',
+      icon: <School />,
+      path: '/project/study',
+      badge: 0,
+    },
+  ];
+
+  // 新しいワークスペース/プロジェクトを追加
+  const addNewWorkspace = () => {
+    const newName = prompt('新しいワークスペース名を入力してください:');
+    if (newName && newName.trim()) {
+      const newWorkspace = {
+        text: newName.trim(),
+        icon: <Folder />,
+        path: `/workspace/${newName.toLowerCase().replace(/\s+/g, '-')}`,
+        badge: 0,
+      };
+      workspaceItems.push(newWorkspace);
+      toast.success(`ワークスペース「${newName}」を作成しました`);
+    }
+  };
+
+  const addNewProject = () => {
+    const newName = prompt('新しいプロジェクト名を入力してください:');
+    if (newName && newName.trim()) {
+      const newProject = {
+        text: newName.trim(),
+        icon: <Work />,
+        path: `/project/${newName.toLowerCase().replace(/\s+/g, '-')}`,
+        badge: 0,
+      };
+      projectItems.push(newProject);
+      toast.success(`プロジェクト「${newName}」を作成しました`);
+    }
+  };
+
+  // ワークスペース/プロジェクトを削除
+  const deleteWorkspace = (workspaceName: string) => {
+    if (confirm(`ワークスペース「${workspaceName}」を削除しますか？`)) {
+      const index = workspaceItems.findIndex(item => item.text === workspaceName);
+      if (index > -1) {
+        workspaceItems.splice(index, 1);
+        toast.success(`ワークスペース「${workspaceName}」を削除しました`);
+      }
+    }
+  };
+
+  const deleteProject = (projectName: string) => {
+    if (confirm(`プロジェクト「${projectName}」を削除しますか？`)) {
+      const index = projectItems.findIndex(item => item.text === projectName);
+      if (index > -1) {
+        projectItems.splice(index, 1);
+        toast.success(`プロジェクト「${projectName}」を削除しました`);
+      }
+    }
+  };
+
   // タスク数を動的に計算
   const calculateTaskCount = (filterType: string, filterValue: string) => {
     return tasks.filter((task: any) => {
@@ -123,9 +195,20 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
 
   // バッジ数を更新
   const updateBadgeCounts = () => {
-    workspaceItems[0].badge = calculateTaskCount('assignee', 'デモユーザー') + calculateTaskCount('assignee', '個人');
-    workspaceItems[1].badge = calculateTaskCount('status', 'inProgress');
-    workspaceItems[2].badge = calculateTaskCount('priority', 'high');
+    // 個人プロジェクトのタスク数（デモユーザー、個人、またはassigneeが空のタスク）
+    workspaceItems[0].badge = tasks.filter((task: any) => 
+      !task.assignee || task.assignee === 'デモユーザー' || task.assignee === '個人'
+    ).length;
+    
+    // チームAのタスク数（進行中のタスク）
+    workspaceItems[1].badge = tasks.filter((task: any) => 
+      task.status === 'inProgress'
+    ).length;
+    
+    // プロジェクトXのタスク数（高優先度のタスク）
+    workspaceItems[2].badge = tasks.filter((task: any) => 
+      task.priority === 'high'
+    ).length;
   };
 
   // コンポーネントマウント時にバッジ数を計算し、現在の選択状態を復元
@@ -400,6 +483,97 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
           transition={{ duration: 0.3 }}
         >
           <Box sx={{ p: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                プロジェクト
+              </Typography>
+              <IconButton
+                size="small"
+                onClick={addNewProject}
+                sx={{ color: 'primary.main', '&:hover': { backgroundColor: 'primary.50' } }}
+              >
+                <AddIcon sx={{ fontSize: 16 }} />
+              </IconButton>
+            </Box>
+          </Box>
+        </motion.div>
+      )}
+
+      <List sx={{ px: 1 }}>
+        {projectItems.map((item) => (
+          <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
+            <ListItemButton
+              onClick={() => handleProjectClick(item.text)}
+              selected={currentProject === item.text}
+              sx={{
+                borderRadius: 2,
+                minHeight: 48,
+                '&.Mui-selected': {
+                  backgroundColor: 'primary.main',
+                  color: 'primary.contrastText',
+                  '&:hover': {
+                    backgroundColor: 'primary.dark',
+                  },
+                },
+              }}
+            >
+              <ListItemIcon sx={{ minWidth: 40 }}>
+                {item.icon}
+              </ListItemIcon>
+              {open && (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
+                  <ListItemText
+                    primary={item.text}
+                    primaryTypographyProps={{
+                      fontSize: '0.875rem',
+                      fontWeight: 500,
+                    }}
+                  />
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Badge
+                      badgeContent={item.badge}
+                      color="primary"
+                      sx={{
+                        '& .MuiBadge-badge': {
+                          fontSize: '0.625rem',
+                          height: 18,
+                          minWidth: 18,
+                        },
+                      }}
+                    />
+                    {item.text !== '個人プロジェクト' && (
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteProject(item.text);
+                        }}
+                        sx={{ 
+                          color: 'error.main', 
+                          '&:hover': { backgroundColor: 'error.50' },
+                          ml: 1
+                        }}
+                      >
+                        <Delete sx={{ fontSize: 14 }} />
+                      </IconButton>
+                    )}
+                  </Box>
+                </Box>
+              )}
+            </ListItemButton>
+          </ListItem>
+        ))}
+      </List>
+
+      <Divider />
+
+      {open && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          transition={{ duration: 0.3 }}
+        >
+          <Box sx={{ p: 2 }}>
             <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 600 }}>
               ワークスペース
             </Typography>
@@ -450,172 +624,42 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
                       fontWeight: currentWorkspace === item.text ? 600 : 500,
                     }}
                   />
-                  {item.badge && (
-                    <Badge
-                      badgeContent={item.badge}
-                      color="error"
-                      sx={{
-                        '& .MuiBadge-badge': {
-                          backgroundColor: currentWorkspace === item.text ? 'white' : 'primary.main',
-                          color: currentWorkspace === item.text ? 'primary.main' : 'white',
-                        },
-                      }}
-                    />
-                  )}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {item.badge && (
+                      <Badge
+                        badgeContent={item.badge}
+                        color="error"
+                        sx={{
+                          '& .MuiBadge-badge': {
+                            backgroundColor: currentWorkspace === item.text ? 'white' : 'primary.main',
+                            color: currentWorkspace === item.text ? 'primary.main' : 'white',
+                          },
+                        }}
+                      />
+                    )}
+                    {item.text !== '個人プロジェクト' && (
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteWorkspace(item.text);
+                        }}
+                        sx={{ 
+                          color: 'error.main', 
+                          '&:hover': { backgroundColor: 'error.50' },
+                          ml: 1
+                        }}
+                      >
+                        <Delete sx={{ fontSize: 14 }} />
+                      </IconButton>
+                    )}
+                  </Box>
                 </motion.div>
               )}
             </ListItemButton>
           </ListItem>
         ))}
       </List>
-
-      {/* プロジェクト */}
-      <Box sx={{ mb: 2 }}>
-        <Typography
-          variant="overline"
-          sx={{
-            px: 2,
-            py: 1,
-            color: 'text.secondary',
-            fontWeight: 600,
-            fontSize: '0.75rem',
-            display: open ? 'block' : 'none',
-          }}
-        >
-          プロジェクト
-        </Typography>
-        <List dense>
-          <ListItem disablePadding>
-            <ListItemButton
-              onClick={() => handleProjectClick('個人プロジェクト')}
-              selected={currentProject === '個人プロジェクト'}
-              sx={{
-                minHeight: 48,
-                px: 2,
-                '&.Mui-selected': {
-                  backgroundColor: 'primary.main',
-                  color: 'primary.contrastText',
-                  '&:hover': {
-                    backgroundColor: 'primary.dark',
-                  },
-                },
-              }}
-            >
-              <ListItemIcon sx={{ minWidth: 40 }}>
-                <Folder sx={{ fontSize: 20 }} />
-              </ListItemIcon>
-              {open && (
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
-                  <ListItemText
-                    primary="個人プロジェクト"
-                    primaryTypographyProps={{
-                      fontSize: '0.875rem',
-                      fontWeight: 500,
-                    }}
-                  />
-                  <Badge
-                    badgeContent={calculateTaskCount('assignee', '個人')}
-                    color="primary"
-                    sx={{
-                      '& .MuiBadge-badge': {
-                        fontSize: '0.625rem',
-                        height: 18,
-                        minWidth: 18,
-                      },
-                    }}
-                  />
-                </Box>
-              )}
-            </ListItemButton>
-          </ListItem>
-          <ListItem disablePadding>
-            <ListItemButton
-              onClick={() => handleProjectClick('仕事')}
-              selected={currentProject === '仕事'}
-              sx={{
-                minHeight: 48,
-                px: 2,
-                '&.Mui-selected': {
-                  backgroundColor: 'primary.main',
-                  color: 'primary.contrastText',
-                  '&:hover': {
-                    backgroundColor: 'primary.dark',
-                  },
-                },
-              }}
-            >
-              <ListItemIcon sx={{ minWidth: 40 }}>
-                <Work sx={{ fontSize: 20 }} />
-              </ListItemIcon>
-              {open && (
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
-                  <ListItemText
-                    primary="仕事"
-                    primaryTypographyProps={{
-                      fontSize: '0.875rem',
-                      fontWeight: 500,
-                    }}
-                  />
-                  <Badge
-                    badgeContent={calculateTaskCount('priority', 'high')}
-                    color="error"
-                    sx={{
-                      '& .MuiBadge-badge': {
-                        fontSize: '0.625rem',
-                        height: 18,
-                        minWidth: 18,
-                      },
-                    }}
-                  />
-                </Box>
-              )}
-            </ListItemButton>
-          </ListItem>
-          <ListItem disablePadding>
-            <ListItemButton
-              onClick={() => handleProjectClick('学習')}
-              selected={currentProject === '学習'}
-              sx={{
-                minHeight: 48,
-                px: 2,
-                '&.Mui-selected': {
-                  backgroundColor: 'primary.main',
-                  color: 'primary.contrastText',
-                  '&:hover': {
-                    backgroundColor: 'primary.dark',
-                  },
-                },
-              }}
-            >
-              <ListItemIcon sx={{ minWidth: 40 }}>
-                <School sx={{ fontSize: 20 }} />
-              </ListItemIcon>
-              {open && (
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
-                  <ListItemText
-                    primary="学習"
-                    primaryTypographyProps={{
-                      fontSize: '0.875rem',
-                      fontWeight: 500,
-                    }}
-                  />
-                  <Badge
-                    badgeContent={calculateTaskCount('priority', 'medium')}
-                    color="warning"
-                    sx={{
-                      '& .MuiBadge-badge': {
-                        fontSize: '0.625rem',
-                        height: 18,
-                        minWidth: 18,
-                      },
-                    }}
-                  />
-                </Box>
-              )}
-            </ListItemButton>
-          </ListItem>
-        </List>
-      </Box>
 
       <Box sx={{ flexGrow: 1 }} />
 
