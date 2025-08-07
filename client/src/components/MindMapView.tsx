@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -26,6 +26,9 @@ import {
   Avatar,
   Divider,
   Alert,
+  Slider,
+  Switch,
+  FormControlLabel,
 } from '@mui/material';
 import {
   Add,
@@ -54,8 +57,17 @@ import {
   Favorite,
   Star,
   StarBorder,
+  PanTool,
+  Gesture,
+  AutoFixHigh,
+  Psychology,
+  Timeline,
+  TrendingUp,
+  Group,
+  Public,
+  Lock,
 } from '@mui/icons-material';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { setupRealtimeListener, saveTask, updateTask, deleteTask } from '../firebase';
 import toast from 'react-hot-toast';
@@ -64,7 +76,7 @@ interface MindMapNode {
   id: string;
   title: string;
   description: string;
-  type: 'idea' | 'task' | 'project' | 'goal';
+  type: 'idea' | 'task' | 'project' | 'goal' | 'concept' | 'strategy' | 'milestone';
   priority: 'low' | 'medium' | 'high';
   status: 'todo' | 'inProgress' | 'done';
   position: { x: number; y: number };
@@ -75,6 +87,13 @@ interface MindMapNode {
   updatedAt: string;
   isFavorite?: boolean;
   tags?: string[];
+  size?: 'small' | 'medium' | 'large';
+  complexity?: 'simple' | 'moderate' | 'complex';
+  impact?: 'low' | 'medium' | 'high';
+  timeEstimate?: number; // 時間見積もり（分）
+  dependencies?: string[]; // 依存関係
+  collaborators?: string[]; // 共同作業者
+  isPublic?: boolean; // 公開設定
 }
 
 interface Task {
@@ -100,31 +119,36 @@ const MindMapView: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showFavorites, setShowFavorites] = useState(false);
-  const canvasRef = useRef<HTMLDivElement>(null);
+  const [isPanMode, setIsPanMode] = useState(false);
+  const [isCollaborationMode, setIsCollaborationMode] = useState(false);
+  const [autoLayout, setAutoLayout] = useState(true);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [canvasRef] = useState(useRef<HTMLDivElement>(null));
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [draggedNode, setDraggedNode] = useState<string | null>(null);
 
-  // Firebaseリスナーの設定
+  // リアルタイムリスナーを設定
   useEffect(() => {
     if (!user?.id) return;
 
     setIsLoading(true);
     const unsubscribe = setupRealtimeListener(user.id, (firebaseTasks) => {
       setTasks(firebaseTasks);
-      
-      // 既存のマインドマップノードを読み込み
-      const savedNodes = localStorage.getItem(`mindmap_${user.id}`);
-      if (savedNodes) {
-        setNodes(JSON.parse(savedNodes));
-      } else {
-        // デフォルトのマインドマップを作成
-        createDefaultMindMap();
-      }
       setIsLoading(false);
     });
+
+    // マインドマップノードの初期化
+    const savedNodes = localStorage.getItem(`mindmap_${user.id}`);
+    if (savedNodes) {
+      setNodes(JSON.parse(savedNodes));
+    } else {
+      createDefaultMindMap();
+    }
 
     return () => unsubscribe();
   }, [user?.id]);
 
-  // ノードの保存
+  // ノードの変更を保存
   useEffect(() => {
     if (nodes.length > 0 && user?.id) {
       localStorage.setItem(`mindmap_${user.id}`, JSON.stringify(nodes));
@@ -134,65 +158,79 @@ const MindMapView: React.FC = () => {
   const createDefaultMindMap = () => {
     const defaultNodes: MindMapNode[] = [
       {
-        id: 'root',
-        title: 'プロジェクト計画',
-        description: '新しいプロジェクトの全体計画',
-        type: 'project',
+        id: 'node-1',
+        title: 'プロジェクト成功の鍵',
+        description: 'プロジェクトを成功させるための重要な要素を整理',
+        type: 'strategy',
         priority: 'high',
         status: 'todo',
         position: { x: 400, y: 300 },
-        children: [],
+        children: ['node-2', 'node-3', 'node-4'],
         color: '#6366f1',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        isFavorite: true,
-        tags: ['重要', '計画'],
+        size: 'large',
+        complexity: 'complex',
+        impact: 'high',
+        timeEstimate: 480,
+        isPublic: true,
       },
       {
-        id: 'idea-1',
-        title: '市場調査',
-        description: '競合他社の分析と市場動向の調査',
-        type: 'idea',
+        id: 'node-2',
+        title: 'チーム構築',
+        description: '効果的なチームメンバーの選定と役割分担',
+        type: 'concept',
         priority: 'high',
-        status: 'todo',
-        position: { x: 200, y: 200 },
-        parentId: 'root',
+        status: 'inProgress',
+        position: { x: 200, y: 150 },
+        parentId: 'node-1',
         children: [],
-        color: '#f59e0b',
+        color: '#8b5cf6',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        tags: ['調査', '分析'],
+        size: 'medium',
+        complexity: 'moderate',
+        impact: 'high',
+        timeEstimate: 120,
+        tags: ['重要', 'チーム'],
       },
       {
-        id: 'task-1',
-        title: 'チーム編成',
-        description: 'プロジェクトチームのメンバー選定',
-        type: 'task',
+        id: 'node-3',
+        title: '技術選定',
+        description: '最新技術の調査と最適な技術スタックの決定',
+        type: 'idea',
         priority: 'medium',
-        status: 'inProgress',
-        position: { x: 600, y: 200 },
-        parentId: 'root',
+        status: 'todo',
+        position: { x: 600, y: 150 },
+        parentId: 'node-1',
+        children: [],
+        color: '#06b6d4',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        size: 'medium',
+        complexity: 'moderate',
+        impact: 'medium',
+        timeEstimate: 180,
+        tags: ['技術', '調査'],
+      },
+      {
+        id: 'node-4',
+        title: 'マーケティング戦略',
+        description: 'ターゲット市場の分析と効果的なマーケティング手法',
+        type: 'strategy',
+        priority: 'high',
+        status: 'todo',
+        position: { x: 400, y: 450 },
+        parentId: 'node-1',
         children: [],
         color: '#10b981',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        tags: ['人事', 'チーム'],
-      },
-      {
-        id: 'goal-1',
-        title: '売上目標達成',
-        description: '年間売上目標の達成',
-        type: 'goal',
-        priority: 'high',
-        status: 'todo',
-        position: { x: 400, y: 500 },
-        parentId: 'root',
-        children: [],
-        color: '#ef4444',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        isFavorite: true,
-        tags: ['目標', '売上'],
+        size: 'medium',
+        complexity: 'complex',
+        impact: 'high',
+        timeEstimate: 240,
+        tags: ['マーケティング', '戦略'],
       },
     ];
     setNodes(defaultNodes);
@@ -206,14 +244,23 @@ const MindMapView: React.FC = () => {
       type: 'idea',
       priority: 'medium',
       status: 'todo',
-      position: { x: Math.random() * 600 + 100, y: Math.random() * 400 + 100 },
+      position: {
+        x: parentId ? 400 : Math.random() * 800 + 100,
+        y: parentId ? 300 : Math.random() * 600 + 100,
+      },
       parentId,
       children: [],
-      color: '#8b5cf6',
+      color: '#6366f1',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      size: 'medium',
+      complexity: 'simple',
+      impact: 'medium',
+      timeEstimate: 60,
       tags: [],
     };
+
+    setNodes(prev => [...prev, newNode]);
     setEditingNode(newNode);
     setDialogOpen(true);
   };
@@ -225,17 +272,19 @@ const MindMapView: React.FC = () => {
 
   const deleteNode = (nodeId: string) => {
     const deleteChildren = (id: string) => {
-      const children = nodes.filter(node => node.parentId === id);
-      children.forEach(child => deleteChildren(child.id));
-      setNodes(prev => prev.filter(node => node.id !== id));
+      const node = nodes.find(n => n.id === id);
+      if (node) {
+        node.children.forEach(childId => deleteChildren(childId));
+        setNodes(prev => prev.filter(n => n.id !== id));
+      }
     };
-    
+
     deleteChildren(nodeId);
     toast.success('ノードを削除しました');
   };
 
   const convertToTask = (node: MindMapNode) => {
-    const newTask = {
+    const task: Task = {
       id: `task-${Date.now()}`,
       title: node.title,
       description: node.description,
@@ -246,7 +295,7 @@ const MindMapView: React.FC = () => {
       createdAt: new Date().toISOString(),
     };
 
-    saveTask(user!.id, newTask);
+    saveTask(user?.id || '', task);
     toast.success('タスクに変換しました');
   };
 
@@ -257,9 +306,9 @@ const MindMapView: React.FC = () => {
       // 新しいノード
       setNodes(prev => [...prev, editingNode]);
     } else {
-      // 既存ノードの更新
+      // 既存のノードを更新
       setNodes(prev => prev.map(node => 
-        node.id === editingNode.id ? editingNode : node
+        node.id === editingNode.id ? { ...editingNode, updatedAt: new Date().toISOString() } : node
       ));
     }
 
@@ -269,30 +318,34 @@ const MindMapView: React.FC = () => {
   };
 
   const getNodeColor = (type: string) => {
-    switch (type) {
-      case 'idea': return '#f59e0b';
-      case 'task': return '#10b981';
-      case 'project': return '#6366f1';
-      case 'goal': return '#ef4444';
-      default: return '#8b5cf6';
-    }
+    const colors: { [key: string]: string } = {
+      idea: '#06b6d4',
+      task: '#6366f1',
+      project: '#8b5cf6',
+      goal: '#10b981',
+      concept: '#f59e0b',
+      strategy: '#ef4444',
+      milestone: '#ec4899',
+    };
+    return colors[type] || '#6366f1';
   };
 
   const getNodeIcon = (type: string) => {
-    switch (type) {
-      case 'idea': return <Lightbulb sx={{ fontSize: 20 }} />;
-      case 'task': return <Assignment sx={{ fontSize: 20 }} />;
-      case 'project': return <AccountTree sx={{ fontSize: 20 }} />;
-      case 'goal': return <Star sx={{ fontSize: 20 }} />;
-      default: return <Lightbulb sx={{ fontSize: 20 }} />;
-    }
+    const icons: { [key: string]: React.ReactNode } = {
+      idea: <Lightbulb sx={{ fontSize: 20 }} />,
+      task: <Assignment sx={{ fontSize: 20 }} />,
+      project: <AccountTree sx={{ fontSize: 20 }} />,
+      goal: <CheckCircle sx={{ fontSize: 20 }} />,
+      concept: <Psychology sx={{ fontSize: 20 }} />,
+      strategy: <TrendingUp sx={{ fontSize: 20 }} />,
+      milestone: <Timeline sx={{ fontSize: 20 }} />,
+    };
+    return icons[type] || <Lightbulb sx={{ fontSize: 20 }} />;
   };
 
   const handleZoom = (direction: 'in' | 'out') => {
-    setZoom(prev => {
-      const newZoom = direction === 'in' ? prev * 1.2 : prev / 1.2;
-      return Math.min(Math.max(newZoom, 0.5), 3);
-    });
+    const newZoom = direction === 'in' ? zoom * 1.2 : zoom / 1.2;
+    setZoom(Math.min(Math.max(newZoom, 0.3), 3));
   };
 
   const resetView = () => {
@@ -306,6 +359,98 @@ const MindMapView: React.FC = () => {
     ));
   };
 
+  // ドラッグ機能
+  const handleDragStart = (nodeId: string, event: React.MouseEvent) => {
+    if (isPanMode) return;
+    setIsDragging(true);
+    setDraggedNode(nodeId);
+    setDragStart({ x: event.clientX, y: event.clientY });
+  };
+
+  const handleDrag = useCallback((event: MouseEvent) => {
+    if (!isDragging || !draggedNode || isPanMode) return;
+
+    const deltaX = event.clientX - dragStart.x;
+    const deltaY = event.clientY - dragStart.y;
+
+    setNodes(prev => prev.map(node => 
+      node.id === draggedNode 
+        ? { ...node, position: { x: node.position.x + deltaX, y: node.position.y + deltaY } }
+        : node
+    ));
+
+    setDragStart({ x: event.clientX, y: event.clientY });
+  }, [isDragging, draggedNode, dragStart, isPanMode]);
+
+  const handleDragEnd = () => {
+    setIsDragging(false);
+    setDraggedNode(null);
+  };
+
+  // パン機能
+  const handlePanStart = (event: React.MouseEvent) => {
+    if (!isPanMode) return;
+    setDragStart({ x: event.clientX, y: event.clientY });
+  };
+
+  const handlePanMove = (event: MouseEvent) => {
+    if (!isPanMode) return;
+    const deltaX = event.clientX - dragStart.x;
+    const deltaY = event.clientY - dragStart.y;
+    setPan(prev => ({ x: prev.x + deltaX, y: prev.y + deltaY }));
+    setDragStart({ x: event.clientX, y: event.clientY });
+  };
+
+  // 自動レイアウト機能
+  const applyAutoLayout = () => {
+    if (!autoLayout) return;
+    
+    setNodes(prev => {
+      const rootNodes = prev.filter(node => !node.parentId);
+      const layoutedNodes = [...prev];
+      
+      rootNodes.forEach((rootNode, index) => {
+        const angle = (index * 2 * Math.PI) / rootNodes.length;
+        const radius = 300;
+        const x = 400 + radius * Math.cos(angle);
+        const y = 300 + radius * Math.sin(angle);
+        
+        const nodeIndex = layoutedNodes.findIndex(n => n.id === rootNode.id);
+        if (nodeIndex !== -1) {
+          layoutedNodes[nodeIndex] = { ...rootNode, position: { x, y } };
+        }
+      });
+      
+      return layoutedNodes;
+    });
+  };
+
+  useEffect(() => {
+    if (autoLayout) {
+      applyAutoLayout();
+    }
+  }, [autoLayout]);
+
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleDrag);
+      document.addEventListener('mouseup', handleDragEnd);
+      return () => {
+        document.removeEventListener('mousemove', handleDrag);
+        document.removeEventListener('mouseup', handleDragEnd);
+      };
+    }
+  }, [isDragging, handleDrag]);
+
+  useEffect(() => {
+    if (isPanMode) {
+      document.addEventListener('mousemove', handlePanMove);
+      return () => {
+        document.removeEventListener('mousemove', handlePanMove);
+      };
+    }
+  }, [isPanMode, handlePanMove]);
+
   const filteredNodes = showFavorites ? nodes.filter(node => node.isFavorite) : nodes;
 
   return (
@@ -316,11 +461,41 @@ const MindMapView: React.FC = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1 }}>
             <AccountTree sx={{ fontSize: 32, color: 'primary.main' }} />
             <Typography variant="h5" sx={{ fontWeight: 700, color: 'text.primary' }}>
-              マインドマップ
+              画期的マインドマップ
             </Typography>
           </Box>
           
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={isPanMode}
+                  onChange={(e) => setIsPanMode(e.target.checked)}
+                  size="small"
+                />
+              }
+              label="パンモード"
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={autoLayout}
+                  onChange={(e) => setAutoLayout(e.target.checked)}
+                  size="small"
+                />
+              }
+              label="自動レイアウト"
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={isCollaborationMode}
+                  onChange={(e) => setIsCollaborationMode(e.target.checked)}
+                  size="small"
+                />
+              }
+              label="コラボレーション"
+            />
             <Tooltip title="お気に入りのみ表示">
               <IconButton 
                 onClick={() => setShowFavorites(!showFavorites)}
@@ -371,13 +546,15 @@ const MindMapView: React.FC = () => {
           overflow: 'hidden',
           background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
           borderRadius: 0,
+          cursor: isPanMode ? 'grab' : 'default',
         }}
+        onMouseDown={isPanMode ? handlePanStart : undefined}
       >
         <Box
           sx={{
             transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
             transformOrigin: 'center',
-            transition: 'transform 0.3s ease',
+            transition: isDragging ? 'none' : 'transform 0.3s ease',
             position: 'relative',
             width: '100%',
             height: '100%',
@@ -435,14 +612,15 @@ const MindMapView: React.FC = () => {
                   top: node.position.y,
                   zIndex: node.parentId ? 1 : 2,
                 }}
+                onMouseDown={(e) => handleDragStart(node.id, e)}
               >
                 <Card
                   sx={{
-                    minWidth: 300,
-                    maxWidth: 350,
+                    minWidth: node.size === 'large' ? 400 : node.size === 'small' ? 250 : 300,
+                    maxWidth: node.size === 'large' ? 450 : node.size === 'small' ? 300 : 350,
                     background: `linear-gradient(135deg, ${getNodeColor(node.type)} 0%, ${getNodeColor(node.type)}dd 100%)`,
                     color: 'white',
-                    cursor: 'pointer',
+                    cursor: isPanMode ? 'grab' : 'pointer',
                     borderRadius: 3,
                     boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
                     border: node.isFavorite ? '2px solid #fbbf24' : 'none',
@@ -510,7 +688,7 @@ const MindMapView: React.FC = () => {
                               e.stopPropagation();
                               editNode(node);
                             }}
-                            sx={{ color: 'white' }}
+                            sx={{ color: 'rgba(255, 255, 255, 0.7)' }}
                           >
                             <Edit />
                           </IconButton>
@@ -522,7 +700,7 @@ const MindMapView: React.FC = () => {
                               e.stopPropagation();
                               deleteNode(node.id);
                             }}
-                            sx={{ color: 'white' }}
+                            sx={{ color: 'rgba(255, 255, 255, 0.7)' }}
                           >
                             <Delete />
                           </IconButton>
@@ -531,82 +709,73 @@ const MindMapView: React.FC = () => {
                     </Box>
                     
                     {node.description && (
-                      <Typography 
-                        variant="body2" 
-                        sx={{ 
-                          mb: 2, 
-                          opacity: 0.9,
-                          lineHeight: 1.5,
-                          fontStyle: 'italic',
-                        }}
-                      >
+                      <Typography variant="body2" sx={{ mb: 2, opacity: 0.9, lineHeight: 1.5, fontStyle: 'italic' }}>
                         {node.description}
                       </Typography>
                     )}
-
+                    
                     <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                      <Chip
-                        label={node.status === 'todo' ? '未着手' : node.status === 'inProgress' ? '進行中' : '完了'}
-                        size="small"
-                        sx={{
-                          backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                          color: 'white',
-                          fontWeight: 600,
-                        }}
+                      <Chip 
+                        label={node.status === 'todo' ? '未着手' : node.status === 'inProgress' ? '進行中' : '完了'} 
+                        size="small" 
+                        sx={{ backgroundColor: 'rgba(255, 255, 255, 0.2)', color: 'white', fontWeight: 600 }} 
                       />
-                      <Chip
-                        label={node.priority === 'high' ? '高優先' : node.priority === 'medium' ? '中優先' : '低優先'}
-                        size="small"
-                        sx={{
-                          backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                          color: 'white',
-                          fontWeight: 600,
-                        }}
+                      <Chip 
+                        label={node.priority === 'high' ? '高優先' : node.priority === 'medium' ? '中優先' : '低優先'} 
+                        size="small" 
+                        sx={{ backgroundColor: 'rgba(255, 255, 255, 0.2)', color: 'white', fontWeight: 600 }} 
                       />
+                      {node.timeEstimate && (
+                        <Chip 
+                          label={`${Math.round(node.timeEstimate / 60)}時間`} 
+                          size="small" 
+                          sx={{ backgroundColor: 'rgba(255, 255, 255, 0.2)', color: 'white', fontWeight: 600 }} 
+                        />
+                      )}
                     </Box>
-
+                    
                     <Divider sx={{ my: 1, borderColor: 'rgba(255, 255, 255, 0.2)' }} />
-
+                    
                     <Box sx={{ display: 'flex', gap: 1 }}>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          addNode(node.id);
-                        }}
-                        sx={{
-                          borderColor: 'white',
-                          color: 'white',
-                          borderRadius: 2,
-                          textTransform: 'none',
+                      <Button 
+                        size="small" 
+                        variant="outlined" 
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          addNode(node.id); 
+                        }} 
+                        sx={{ 
+                          borderColor: 'white', 
+                          color: 'white', 
+                          borderRadius: 2, 
+                          textTransform: 'none', 
                           fontWeight: 600,
-                          '&:hover': {
-                            borderColor: 'white',
-                            backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                          },
+                          '&:hover': { 
+                            borderColor: 'white', 
+                            backgroundColor: 'rgba(255, 255, 255, 0.1)' 
+                          } 
                         }}
                       >
                         子ノード追加
                       </Button>
                       {node.type === 'idea' && (
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            convertToTask(node);
-                          }}
-                          sx={{
-                            borderColor: 'white',
-                            color: 'white',
-                            borderRadius: 2,
-                            textTransform: 'none',
+                        <Button 
+                          size="small" 
+                          variant="outlined" 
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            convertToTask(node); 
+                          }} 
+                          sx={{ 
+                            borderColor: 'white', 
+                            color: 'white', 
+                            borderRadius: 2, 
+                            textTransform: 'none', 
                             fontWeight: 600,
-                            '&:hover': {
-                              borderColor: 'white',
-                              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                            },
+                            '&:hover': { 
+                              borderColor: 'white', 
+                              backgroundColor: 'rgba(255, 255, 255, 0.1)' 
+                            } 
                           }}
                         >
                           タスク化
@@ -622,10 +791,10 @@ const MindMapView: React.FC = () => {
       </Paper>
 
       {/* ノード編集ダイアログ */}
-      <Dialog 
-        open={dialogOpen} 
-        onClose={() => setDialogOpen(false)} 
-        maxWidth="md" 
+      <Dialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        maxWidth="md"
         fullWidth
         PaperProps={{
           sx: {
@@ -634,7 +803,7 @@ const MindMapView: React.FC = () => {
           }
         }}
       >
-        <DialogTitle sx={{ 
+        <DialogTitle sx={{
           background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
           color: 'white',
           borderRadius: '12px 12px 0 0',
@@ -647,7 +816,6 @@ const MindMapView: React.FC = () => {
             </Typography>
           </Box>
         </DialogTitle>
-        
         <DialogContent sx={{ p: 3 }}>
           <Grid container spacing={3}>
             <Grid item xs={12}>
@@ -657,60 +825,46 @@ const MindMapView: React.FC = () => {
                 value={editingNode?.title || ''}
                 onChange={(e) => setEditingNode(prev => prev ? { ...prev, title: e.target.value } : null)}
                 variant="outlined"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                  }
-                }}
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
               />
             </Grid>
-            
             <Grid item xs={12}>
               <TextField
                 fullWidth
                 label="説明"
-                multiline
-                rows={4}
                 value={editingNode?.description || ''}
                 onChange={(e) => setEditingNode(prev => prev ? { ...prev, description: e.target.value } : null)}
                 variant="outlined"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                  }
-                }}
+                multiline
+                rows={3}
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
               />
             </Grid>
-            
-            <Grid item xs={12} md={4}>
-              <FormControl fullWidth>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth variant="outlined" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}>
                 <InputLabel>タイプ</InputLabel>
                 <Select
                   value={editingNode?.type || 'idea'}
                   onChange={(e) => setEditingNode(prev => prev ? { ...prev, type: e.target.value as any } : null)}
                   label="タイプ"
-                  sx={{
-                    borderRadius: 2,
-                  }}
                 >
                   <MenuItem value="idea">アイデア 💡</MenuItem>
-                  <MenuItem value="task">タスク ✅</MenuItem>
-                  <MenuItem value="project">プロジェクト 📋</MenuItem>
+                  <MenuItem value="task">タスク 📋</MenuItem>
+                  <MenuItem value="project">プロジェクト 🚀</MenuItem>
                   <MenuItem value="goal">目標 🎯</MenuItem>
+                  <MenuItem value="concept">コンセプト 🧠</MenuItem>
+                  <MenuItem value="strategy">戦略 📊</MenuItem>
+                  <MenuItem value="milestone">マイルストーン 🏁</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
-            
-            <Grid item xs={12} md={4}>
-              <FormControl fullWidth>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth variant="outlined" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}>
                 <InputLabel>優先度</InputLabel>
                 <Select
                   value={editingNode?.priority || 'medium'}
                   onChange={(e) => setEditingNode(prev => prev ? { ...prev, priority: e.target.value as any } : null)}
                   label="優先度"
-                  sx={{
-                    borderRadius: 2,
-                  }}
                 >
                   <MenuItem value="low">低優先度</MenuItem>
                   <MenuItem value="medium">中優先度</MenuItem>
@@ -718,25 +872,31 @@ const MindMapView: React.FC = () => {
                 </Select>
               </FormControl>
             </Grid>
-            
-            <Grid item xs={12} md={4}>
-              <FormControl fullWidth>
-                <InputLabel>ステータス</InputLabel>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth variant="outlined" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}>
+                <InputLabel>サイズ</InputLabel>
                 <Select
-                  value={editingNode?.status || 'todo'}
-                  onChange={(e) => setEditingNode(prev => prev ? { ...prev, status: e.target.value as any } : null)}
-                  label="ステータス"
-                  sx={{
-                    borderRadius: 2,
-                  }}
+                  value={editingNode?.size || 'medium'}
+                  onChange={(e) => setEditingNode(prev => prev ? { ...prev, size: e.target.value as any } : null)}
+                  label="サイズ"
                 >
-                  <MenuItem value="todo">未着手</MenuItem>
-                  <MenuItem value="inProgress">進行中</MenuItem>
-                  <MenuItem value="done">完了</MenuItem>
+                  <MenuItem value="small">小</MenuItem>
+                  <MenuItem value="medium">中</MenuItem>
+                  <MenuItem value="large">大</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
-            
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="時間見積もり（分）"
+                type="number"
+                value={editingNode?.timeEstimate || 60}
+                onChange={(e) => setEditingNode(prev => prev ? { ...prev, timeEstimate: parseInt(e.target.value) } : null)}
+                variant="outlined"
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+              />
+            </Grid>
             <Grid item xs={12}>
               <TextField
                 fullWidth
@@ -748,30 +908,25 @@ const MindMapView: React.FC = () => {
                 }}
                 variant="outlined"
                 placeholder="重要, 計画, 分析"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                  }
-                }}
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
               />
             </Grid>
           </Grid>
         </DialogContent>
-        
         <DialogActions sx={{ p: 3, pt: 0 }}>
-          <Button 
+          <Button
             onClick={() => setDialogOpen(false)}
             variant="outlined"
             sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
           >
             キャンセル
           </Button>
-          <Button 
-            onClick={saveNode} 
+          <Button
+            onClick={saveNode}
             variant="contained"
-            sx={{ 
-              borderRadius: 2, 
-              textTransform: 'none', 
+            sx={{
+              borderRadius: 2,
+              textTransform: 'none',
               fontWeight: 600,
               background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
               '&:hover': {

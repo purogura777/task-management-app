@@ -278,13 +278,13 @@ const Dashboard: React.FC = () => {
       if (currentProject) {
         switch (currentProject) {
           case '個人プロジェクト':
-            return !task.assignee || task.assignee === '個人' || task.assignee === 'デモユーザー';
+            return !task.project || task.project === '個人プロジェクト' || task.assignee === 'デモユーザー';
           case '仕事':
-            return task.assignee === '仕事' || task.priority === 'high';
+            return task.project === '仕事';
           case '学習':
-            return task.assignee === '学習' || task.priority === 'medium';
+            return task.project === '学習';
           default:
-            return true;
+            return task.project === currentProject;
         }
       }
 
@@ -292,13 +292,13 @@ const Dashboard: React.FC = () => {
       if (currentWorkspace) {
         switch (currentWorkspace) {
           case '個人プロジェクト':
-            return !task.assignee || task.assignee === '個人' || task.assignee === 'デモユーザー';
+            return !task.workspace || task.workspace === '個人プロジェクト' || task.assignee === 'デモユーザー';
           case 'チームA':
-            return task.assignee === 'チームA' || task.status === 'inProgress';
+            return task.workspace === 'チームA';
           case 'プロジェクトX':
-            return task.assignee === 'プロジェクトX' || task.priority === 'high';
+            return task.workspace === 'プロジェクトX';
           default:
-            return true;
+            return task.workspace === currentWorkspace;
         }
       }
 
