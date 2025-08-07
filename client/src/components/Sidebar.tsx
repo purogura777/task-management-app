@@ -312,17 +312,17 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
     switch (projectName) {
       case '個人プロジェクト':
         filteredTasks = tasks.filter((task: any) => 
-          !task.assignee || task.assignee === 'デモユーザー' || task.assignee === '個人'
+          !task.project || task.project === '個人プロジェクト'
         );
         break;
       case '仕事':
         filteredTasks = tasks.filter((task: any) => 
-          task.project === '仕事' || task.priority === 'high'
+          task.project === '仕事'
         );
         break;
       case '学習':
         filteredTasks = tasks.filter((task: any) => 
-          task.project === '学習' || task.priority === 'medium'
+          task.project === '学習'
         );
         break;
       default:
@@ -363,17 +363,17 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
     switch (workspaceName) {
       case '個人プロジェクト':
         filteredTasks = tasks.filter((task: any) => 
-          !task.assignee || task.assignee === 'デモユーザー' || task.assignee === '個人'
+          !task.workspace || task.workspace === '個人プロジェクト'
         );
         break;
       case 'チームA':
         filteredTasks = tasks.filter((task: any) => 
-          task.workspace === 'チームA' || task.status === 'inProgress'
+          task.workspace === 'チームA'
         );
         break;
       case 'プロジェクトX':
         filteredTasks = tasks.filter((task: any) => 
-          task.workspace === 'プロジェクトX' || task.priority === 'high'
+          task.workspace === 'プロジェクトX'
         );
         break;
       default:

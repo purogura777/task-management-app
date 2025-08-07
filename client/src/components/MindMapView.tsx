@@ -138,16 +138,29 @@ const MindMapView: React.FC = () => {
       setTasks(firebaseTasks);
       
       // マインドマップノードが存在しない場合はデフォルトを作成
-      const existingNodes = localStorage.getItem('mindMapNodes');
+      const existingNodes = localStorage.getItem(`mindmap_${user.id}`);
       if (!existingNodes) {
         createDefaultMindMap();
       } else {
         try {
           const parsedNodes = JSON.parse(existingNodes);
           setNodes(parsedNodes);
+          console.log('保存されたマインドマップノードを読み込みました:', parsedNodes.length, '個のノード');
         } catch (error) {
           console.error('マインドマップノードの読み込みに失敗:', error);
           createDefaultMindMap();
+        }
+      }
+      
+      // パン位置も読み込み
+      const savedPan = localStorage.getItem(`mindmap_pan_${user.id}`);
+      if (savedPan) {
+        try {
+          const parsedPan = JSON.parse(savedPan);
+          setPan(parsedPan);
+          console.log('保存されたパン位置を読み込みました:', parsedPan);
+        } catch (error) {
+          console.error('パン位置の読み込みに失敗:', error);
         }
       }
       setIsLoading(false);
@@ -407,18 +420,33 @@ const MindMapView: React.FC = () => {
     const deltaX = event.clientX - dragStart.x;
     const deltaY = event.clientY - dragStart.y;
 
-    setNodes(prev => prev.map(node => 
-      node.id === draggedNode 
-        ? { ...node, position: { x: node.position.x + deltaX, y: node.position.y + deltaY } }
-        : node
-    ));
+    setNodes(prev => {
+      const updatedNodes = prev.map(node => 
+        node.id === draggedNode 
+          ? { ...node, position: { x: node.position.x + deltaX, y: node.position.y + deltaY } }
+          : node
+      );
+      
+      // ドラッグ中にリアルタイムで位置を保存
+      if (updatedNodes.length > 0 && user?.id) {
+        localStorage.setItem(`mindmap_${user.id}`, JSON.stringify(updatedNodes));
+      }
+      
+      return updatedNodes;
+    });
 
     setDragStart({ x: event.clientX, y: event.clientY });
-  }, [isDragging, draggedNode, dragStart, isPanMode]);
+  }, [isDragging, draggedNode, dragStart, isPanMode, user?.id]);
 
   const handleDragEnd = () => {
     setIsDragging(false);
     setDraggedNode(null);
+    
+    // ノードの位置をローカルストレージに保存
+    if (nodes.length > 0 && user?.id) {
+      localStorage.setItem(`mindmap_${user.id}`, JSON.stringify(nodes));
+      console.log('マインドマップノードの位置を保存しました');
+    }
   };
 
   // パン機能
@@ -433,6 +461,11 @@ const MindMapView: React.FC = () => {
     const deltaY = event.clientY - dragStart.y;
     setPan(prev => ({ x: prev.x + deltaX, y: prev.y + deltaY }));
     setDragStart({ x: event.clientX, y: event.clientY });
+    
+    // パン位置もローカルストレージに保存
+    if (user?.id) {
+      localStorage.setItem(`mindmap_pan_${user.id}`, JSON.stringify({ x: pan.x + deltaX, y: pan.y + deltaY }));
+    }
   };
 
   // 自動レイアウト機能

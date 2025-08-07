@@ -116,7 +116,6 @@ const CalendarView: React.FC = () => {
         done: { bg: '#10b981', border: '#059669', text: '#ffffff' },
       };
 
-      const colors = priorityColors[task.priority];
       const statusColor = statusColors[task.status];
 
       return {
@@ -129,6 +128,11 @@ const CalendarView: React.FC = () => {
         extendedProps: {
           task,
         },
+        // ドラッグ時の視覚的フィードバックを改善
+        classNames: ['draggable-event'],
+        // ドラッグ可能なイベントのスタイル
+        display: 'block',
+        allDay: true,
       };
     });
 
@@ -192,6 +196,37 @@ const CalendarView: React.FC = () => {
       setEditingTask(null);
     } catch (error) {
       console.error('タスクの削除に失敗しました:', error);
+    }
+  };
+
+  const handleEventDrop = async (dropInfo: any) => {
+    const { event } = dropInfo;
+    const task = event.extendedProps.task;
+    
+    if (!task || !user?.id) return;
+
+    try {
+      // 新しい日付を取得
+      const newDate = format(event.start, 'yyyy-MM-dd');
+      
+      // タスクを更新
+      const updatedTask = {
+        ...task,
+        dueDate: newDate,
+        updatedAt: new Date().toISOString(),
+      };
+
+      console.log('カレンダーでタスクをドラッグ:', task.title, '新しい日付:', newDate);
+      
+      // Firebaseに保存
+      await updateTask(user.id, task.id, updatedTask);
+      
+      // 成功通知
+      console.log('タスクの日付を更新しました:', task.title);
+    } catch (error) {
+      console.error('タスクの日付更新に失敗しました:', error);
+      // エラー時は元の位置に戻す
+      event.setProp('start', task.dueDate);
     }
   };
 
@@ -264,7 +299,27 @@ const CalendarView: React.FC = () => {
                 />
               </Box>
             </Box>
-            <Box sx={{ height: 600 }}>
+            <Box sx={{ 
+              height: 600,
+              '& .draggable-event': {
+                cursor: 'grab',
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'scale(1.02)',
+                  boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
+                },
+                '&:active': {
+                  cursor: 'grabbing',
+                  transform: 'scale(1.05)',
+                  boxShadow: '0 6px 12px rgba(0,0,0,0.3)',
+                },
+              },
+              '& .fc-event-dragging': {
+                opacity: 0.8,
+                transform: 'rotate(5deg)',
+                boxShadow: '0 8px 16px rgba(0,0,0,0.4)',
+              },
+            }}>
               <FullCalendar
                 plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                 initialView="dayGridMonth"
@@ -282,6 +337,7 @@ const CalendarView: React.FC = () => {
                 events={events}
                 dateClick={handleDateClick}
                 eventClick={handleEventClick}
+                eventDrop={handleEventDrop}
                 height="100%"
                 eventDisplay="block"
                 eventTimeFormat={{
