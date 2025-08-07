@@ -19,6 +19,8 @@ import {
   MenuItem,
   Alert,
   Tooltip,
+  Grid,
+  Avatar,
 } from '@mui/material';
 import {
   PlayArrow,
@@ -31,6 +33,7 @@ import {
   Settings,
   VolumeUp,
   VolumeOff,
+  Schedule,
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
@@ -394,68 +397,187 @@ const PomodoroTimer: React.FC = () => {
       </motion.div>
 
       {/* 設定ダイアログ */}
-      <Dialog open={settingsOpen} onClose={() => setSettingsOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>ポモドーロ設定</DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 2 }}>
-            <TextField
-              fullWidth
-              label="作業時間（分）"
-              type="number"
-              value={settings.workDuration}
-              onChange={(e) => setSettings({ ...settings, workDuration: parseInt(e.target.value) })}
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              fullWidth
-              label="短い休憩時間（分）"
-              type="number"
-              value={settings.shortBreakDuration}
-              onChange={(e) => setSettings({ ...settings, shortBreakDuration: parseInt(e.target.value) })}
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              fullWidth
-              label="長い休憩時間（分）"
-              type="number"
-              value={settings.longBreakDuration}
-              onChange={(e) => setSettings({ ...settings, longBreakDuration: parseInt(e.target.value) })}
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              fullWidth
-              label="長い休憩の間隔（ポモドーロ数）"
-              type="number"
-              value={settings.longBreakInterval}
-              onChange={(e) => setSettings({ ...settings, longBreakInterval: parseInt(e.target.value) })}
-              sx={{ mb: 2 }}
-            />
-            <FormControl fullWidth sx={{ mb: 2 }}>
-              <InputLabel>自動開始設定</InputLabel>
-              <Select
-                value={settings.autoStartBreaks ? 'breaks' : settings.autoStartPomodoros ? 'pomodoros' : 'none'}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setSettings({
-                    ...settings,
-                    autoStartBreaks: value === 'breaks',
-                    autoStartPomodoros: value === 'pomodoros',
-                  });
-                }}
-                label="自動開始設定"
-              >
-                <MenuItem value="none">自動開始なし</MenuItem>
-                <MenuItem value="breaks">休憩を自動開始</MenuItem>
-                <MenuItem value="pomodoros">ポモドーロを自動開始</MenuItem>
-              </Select>
-            </FormControl>
+      <Dialog 
+        open={settingsOpen} 
+        onClose={() => setSettingsOpen(false)} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+          color: 'white',
+          borderRadius: '12px 12px 0 0',
+          pb: 2
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Avatar sx={{ 
+              bgcolor: 'rgba(255, 255, 255, 0.2)', 
+              width: 40, 
+              height: 40 
+            }}>
+              <Settings />
+            </Avatar>
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+              ポモドーロ設定
+            </Typography>
           </Box>
+        </DialogTitle>
+        
+        <DialogContent sx={{ p: 3 }}>
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="作業時間（分）"
+                type="number"
+                value={settings.workDuration}
+                onChange={(e) => setSettings({ ...settings, workDuration: parseInt(e.target.value) })}
+                variant="outlined"
+                InputProps={{
+                  startAdornment: <Timer sx={{ mr: 1, color: 'text.secondary' }} />,
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                  }
+                }}
+              />
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="短い休憩時間（分）"
+                type="number"
+                value={settings.shortBreakDuration}
+                onChange={(e) => setSettings({ ...settings, shortBreakDuration: parseInt(e.target.value) })}
+                variant="outlined"
+                InputProps={{
+                  startAdornment: <Schedule sx={{ mr: 1, color: 'text.secondary' }} />,
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                  }
+                }}
+              />
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="長い休憩時間（分）"
+                type="number"
+                value={settings.longBreakDuration}
+                onChange={(e) => setSettings({ ...settings, longBreakDuration: parseInt(e.target.value) })}
+                variant="outlined"
+                InputProps={{
+                  startAdornment: <Schedule sx={{ mr: 1, color: 'text.secondary' }} />,
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                  }
+                }}
+              />
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="長い休憩の間隔（ポモドーロ数）"
+                type="number"
+                value={settings.longBreakInterval}
+                onChange={(e) => setSettings({ ...settings, longBreakInterval: parseInt(e.target.value) })}
+                variant="outlined"
+                InputProps={{
+                  startAdornment: <CheckCircle sx={{ mr: 1, color: 'text.secondary' }} />,
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                  }
+                }}
+              />
+            </Grid>
+            
+            <Grid item xs={12}>
+              <FormControl fullWidth>
+                <InputLabel>自動開始設定</InputLabel>
+                <Select
+                  value={settings.autoStartBreaks ? 'breaks' : settings.autoStartPomodoros ? 'pomodoros' : 'none'}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setSettings({
+                      ...settings,
+                      autoStartBreaks: value === 'breaks',
+                      autoStartPomodoros: value === 'pomodoros',
+                    });
+                  }}
+                  label="自動開始設定"
+                  sx={{
+                    borderRadius: 2,
+                  }}
+                >
+                  <MenuItem value="none">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#64748b' }} />
+                      自動開始なし
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="breaks">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#10b981' }} />
+                      休憩を自動開始
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="pomodoros">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#f59e0b' }} />
+                      ポモドーロを自動開始
+                    </Box>
+                  </MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12}>
+              <Alert severity="info" sx={{ borderRadius: 2 }}>
+                <Typography variant="body2">
+                  推奨設定: 作業時間25分、短い休憩5分、長い休憩15分、間隔4ポモドーロ
+                </Typography>
+              </Alert>
+            </Grid>
+          </Grid>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setSettingsOpen(false)}>
+        
+        <DialogActions sx={{ p: 3, pt: 0 }}>
+          <Button 
+            onClick={() => setSettingsOpen(false)}
+            variant="outlined"
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
+          >
             キャンセル
           </Button>
-          <Button onClick={saveSettings} variant="contained">
+          <Button 
+            onClick={saveSettings} 
+            variant="contained"
+            sx={{ 
+              borderRadius: 2, 
+              textTransform: 'none', 
+              fontWeight: 600,
+              background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)',
+              }
+            }}
+          >
             保存
           </Button>
         </DialogActions>

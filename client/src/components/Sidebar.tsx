@@ -51,6 +51,46 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
   const [currentProject, setCurrentProject] = useState<string | null>(null);
   const [currentWorkspace, setCurrentWorkspace] = useState<string | null>(null);
   const [tasks, setTasks] = useState<any[]>([]);
+  const [projectItems, setProjectItems] = useState([
+    {
+      text: '個人プロジェクト',
+      icon: <PersonIcon />,
+      path: '/project/personal',
+      badge: 0,
+    },
+    {
+      text: '仕事',
+      icon: <Work />,
+      path: '/project/work',
+      badge: 0,
+    },
+    {
+      text: '学習',
+      icon: <School />,
+      path: '/project/study',
+      badge: 0,
+    },
+  ]);
+  const [workspaceItems, setWorkspaceItems] = useState([
+    {
+      text: '個人プロジェクト',
+      icon: <PersonIcon />,
+      path: '/workspace/personal',
+      badge: 0, // 動的に計算
+    },
+    {
+      text: 'チームA',
+      icon: <Folder />,
+      path: '/workspace/team-a',
+      badge: 0, // 動的に計算
+    },
+    {
+      text: 'プロジェクトX',
+      icon: <Folder />,
+      path: '/workspace/project-x',
+      badge: 0, // 動的に計算
+    },
+  ]);
 
   const menuItems = [
     {
@@ -97,48 +137,6 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
     },
   ];
 
-  const workspaceItems = [
-    {
-      text: '個人プロジェクト',
-      icon: <PersonIcon />,
-      path: '/workspace/personal',
-      badge: 0, // 動的に計算
-    },
-    {
-      text: 'チームA',
-      icon: <Folder />,
-      path: '/workspace/team-a',
-      badge: 0, // 動的に計算
-    },
-    {
-      text: 'プロジェクトX',
-      icon: <Folder />,
-      path: '/workspace/project-x',
-      badge: 0, // 動的に計算
-    },
-  ];
-
-  const projectItems = [
-    {
-      text: '個人プロジェクト',
-      icon: <PersonIcon />,
-      path: '/project/personal',
-      badge: 0,
-    },
-    {
-      text: '仕事',
-      icon: <Work />,
-      path: '/project/work',
-      badge: 0,
-    },
-    {
-      text: '学習',
-      icon: <School />,
-      path: '/project/study',
-      badge: 0,
-    },
-  ];
-
   // 新しいワークスペース/プロジェクトを追加
   const addNewWorkspace = () => {
     const newName = prompt('新しいワークスペース名を入力してください:');
@@ -149,7 +147,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
         path: `/workspace/${newName.toLowerCase().replace(/\s+/g, '-')}`,
         badge: 0,
       };
-      workspaceItems.push(newWorkspace);
+      setWorkspaceItems(prev => [...prev, newWorkspace]);
       toast.success(`ワークスペース「${newName}」を作成しました`);
     }
   };
@@ -163,7 +161,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
         path: `/project/${newName.toLowerCase().replace(/\s+/g, '-')}`,
         badge: 0,
       };
-      projectItems.push(newProject);
+      setProjectItems(prev => [...prev, newProject]);
       toast.success(`プロジェクト「${newName}」を作成しました`);
     }
   };
@@ -171,21 +169,15 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
   // ワークスペース/プロジェクトを削除
   const deleteWorkspace = (workspaceName: string) => {
     if (confirm(`ワークスペース「${workspaceName}」を削除しますか？`)) {
-      const index = workspaceItems.findIndex(item => item.text === workspaceName);
-      if (index > -1) {
-        workspaceItems.splice(index, 1);
-        toast.success(`ワークスペース「${workspaceName}」を削除しました`);
-      }
+      setWorkspaceItems(prev => prev.filter(item => item.text !== workspaceName));
+      toast.success(`ワークスペース「${workspaceName}」を削除しました`);
     }
   };
 
   const deleteProject = (projectName: string) => {
     if (confirm(`プロジェクト「${projectName}」を削除しますか？`)) {
-      const index = projectItems.findIndex(item => item.text === projectName);
-      if (index > -1) {
-        projectItems.splice(index, 1);
-        toast.success(`プロジェクト「${projectName}」を削除しました`);
-      }
+      setProjectItems(prev => prev.filter(item => item.text !== projectName));
+      toast.success(`プロジェクト「${projectName}」を削除しました`);
     }
   };
 
@@ -217,34 +209,52 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
       !task.assignee || task.assignee === 'デモユーザー' || task.assignee === '個人'
     ).length;
     console.log('Sidebar: 個人プロジェクトのタスク数:', personalCount);
-    workspaceItems[0].badge = personalCount > 0 ? personalCount : null;
     
-    // チームAのタスク数（進行中のタスク）
+    // チームAのタスク数（workspaceが'チームA'のタスク）
     const teamACount = tasks.filter((task: any) => 
-      task.status === 'inProgress'
+      task.workspace === 'チームA'
     ).length;
     console.log('Sidebar: チームAのタスク数:', teamACount);
-    workspaceItems[1].badge = teamACount > 0 ? teamACount : null;
     
-    // プロジェクトXのタスク数（高優先度のタスク）
+    // プロジェクトXのタスク数（workspaceが'プロジェクトX'のタスク）
     const projectXCount = tasks.filter((task: any) => 
-      task.priority === 'high'
+      task.workspace === 'プロジェクトX'
     ).length;
     console.log('Sidebar: プロジェクトXのタスク数:', projectXCount);
-    workspaceItems[2].badge = projectXCount > 0 ? projectXCount : null;
+
+    // 仕事プロジェクトのタスク数（projectが'仕事'のタスク）
+    const workCount = tasks.filter((task: any) => 
+      task.project === '仕事'
+    ).length;
+    
+    // 学習プロジェクトのタスク数（projectが'学習'のタスク）
+    const studyCount = tasks.filter((task: any) => 
+      task.project === '学習'
+    ).length;
+
+    // ワークスペースのバッジ数を更新
+    setWorkspaceItems(prev => prev.map(item => {
+      if (item.text === '個人プロジェクト') {
+        return { ...item, badge: personalCount > 0 ? personalCount : null };
+      } else if (item.text === 'チームA') {
+        return { ...item, badge: teamACount > 0 ? teamACount : null };
+      } else if (item.text === 'プロジェクトX') {
+        return { ...item, badge: projectXCount > 0 ? projectXCount : null };
+      }
+      return item;
+    }));
 
     // プロジェクトのバッジ数を更新
-    projectItems[0].badge = personalCount > 0 ? personalCount : null;
-    
-    const workCount = tasks.filter((task: any) => 
-      task.assignee === '仕事' || task.priority === 'high'
-    ).length;
-    projectItems[1].badge = workCount > 0 ? workCount : null;
-    
-    const studyCount = tasks.filter((task: any) => 
-      task.assignee === '学習' || task.priority === 'medium'
-    ).length;
-    projectItems[2].badge = studyCount > 0 ? studyCount : null;
+    setProjectItems(prev => prev.map(item => {
+      if (item.text === '個人プロジェクト') {
+        return { ...item, badge: personalCount > 0 ? personalCount : null };
+      } else if (item.text === '仕事') {
+        return { ...item, badge: workCount > 0 ? workCount : null };
+      } else if (item.text === '学習') {
+        return { ...item, badge: studyCount > 0 ? studyCount : null };
+      }
+      return item;
+    }));
   };
 
   // コンポーネントマウント時にバッジ数を計算し、現在の選択状態を復元
@@ -301,17 +311,25 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
     
     switch (projectName) {
       case '個人プロジェクト':
-        filteredTasks = tasks.filter((task: any) => !task.assignee || task.assignee === '個人' || task.assignee === 'デモユーザー');
+        filteredTasks = tasks.filter((task: any) => 
+          !task.assignee || task.assignee === 'デモユーザー' || task.assignee === '個人'
+        );
         break;
       case '仕事':
-        filteredTasks = tasks.filter((task: any) => task.assignee === '仕事' || task.priority === 'high');
+        filteredTasks = tasks.filter((task: any) => 
+          task.project === '仕事' || task.priority === 'high'
+        );
         break;
       case '学習':
-        filteredTasks = tasks.filter((task: any) => task.assignee === '学習' || task.priority === 'medium');
+        filteredTasks = tasks.filter((task: any) => 
+          task.project === '学習' || task.priority === 'medium'
+        );
         break;
       default:
         filteredTasks = tasks;
     }
+    
+    console.log('フィルタリングされたタスク:', filteredTasks);
     
     // フィルタリング結果をグローバル状態として保存
     localStorage.setItem('filteredTasks', JSON.stringify(filteredTasks));
@@ -344,17 +362,25 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
     
     switch (workspaceName) {
       case '個人プロジェクト':
-        filteredTasks = tasks.filter((task: any) => !task.assignee || task.assignee === '個人' || task.assignee === 'デモユーザー');
+        filteredTasks = tasks.filter((task: any) => 
+          !task.assignee || task.assignee === 'デモユーザー' || task.assignee === '個人'
+        );
         break;
       case 'チームA':
-        filteredTasks = tasks.filter((task: any) => task.assignee === 'チームA' || task.status === 'inProgress');
+        filteredTasks = tasks.filter((task: any) => 
+          task.workspace === 'チームA' || task.status === 'inProgress'
+        );
         break;
       case 'プロジェクトX':
-        filteredTasks = tasks.filter((task: any) => task.assignee === 'プロジェクトX' || task.priority === 'high');
+        filteredTasks = tasks.filter((task: any) => 
+          task.workspace === 'プロジェクトX' || task.priority === 'high'
+        );
         break;
       default:
         filteredTasks = tasks;
     }
+    
+    console.log('フィルタリングされたタスク:', filteredTasks);
     
     // フィルタリング結果をグローバル状態として保存
     localStorage.setItem('filteredTasks', JSON.stringify(filteredTasks));

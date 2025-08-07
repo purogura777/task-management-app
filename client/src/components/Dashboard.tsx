@@ -931,111 +931,216 @@ const Dashboard: React.FC = () => {
         <Dialog 
           open={taskDialogOpen} 
           onClose={() => setTaskDialogOpen(false)} 
-          maxWidth="sm" 
+          maxWidth="md" 
           fullWidth
           PaperProps={{
             sx: {
               borderRadius: 3,
+              background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
             },
           }}
         >
-          <DialogTitle>
+          <DialogTitle sx={{ 
+            background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+            color: 'white',
+            borderRadius: '12px 12px 0 0',
+            pb: 2
+          }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                タスクを編集
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Avatar sx={{ 
+                  bgcolor: 'rgba(255, 255, 255, 0.2)', 
+                  width: 40, 
+                  height: 40 
+                }}>
+                  <Assignment />
+                </Avatar>
+                <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                  タスクを編集
+                </Typography>
+              </Box>
               <Button
                 color="error"
                 onClick={handleTaskDelete}
-                sx={{ color: 'error.main' }}
+                variant="outlined"
+                size="small"
+                sx={{ 
+                  color: 'white',
+                  borderColor: 'rgba(255, 255, 255, 0.3)',
+                  '&:hover': {
+                    borderColor: 'white',
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  }
+                }}
               >
                 削除
               </Button>
             </Box>
           </DialogTitle>
-          <DialogContent>
-            <Box sx={{ mt: 2 }}>
-              <TextField
-                fullWidth
-                label="タイトル"
-                value={selectedTask?.title || ''}
-                onChange={(e) => setSelectedTask(prev => prev ? { ...prev, title: e.target.value } : null)}
-                sx={{ mb: 2 }}
-                placeholder="タスクのタイトルを入力..."
-              />
-              <TextField
-                fullWidth
-                label="説明"
-                multiline
-                rows={3}
-                value={selectedTask?.description || ''}
-                onChange={(e) => setSelectedTask(prev => prev ? { ...prev, description: e.target.value } : null)}
-                sx={{ mb: 2 }}
-                placeholder="タスクの詳細を入力..."
-              />
-              <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+          
+          <DialogContent sx={{ p: 3 }}>
+            <Grid container spacing={3}>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="タイトル"
+                  value={selectedTask?.title || ''}
+                  onChange={(e) => setSelectedTask(prev => prev ? { ...prev, title: e.target.value } : null)}
+                  variant="outlined"
+                  placeholder="タスクのタイトルを入力..."
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                    }
+                  }}
+                />
+              </Grid>
+              
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="説明"
+                  multiline
+                  rows={4}
+                  value={selectedTask?.description || ''}
+                  onChange={(e) => setSelectedTask(prev => prev ? { ...prev, description: e.target.value } : null)}
+                  variant="outlined"
+                  placeholder="タスクの詳細を入力..."
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                    }
+                  }}
+                />
+              </Grid>
+              
+              <Grid item xs={12} md={6}>
                 <FormControl fullWidth>
                   <InputLabel>ステータス</InputLabel>
                   <Select
                     value={selectedTask?.status || 'todo'}
                     onChange={(e) => setSelectedTask(prev => prev ? { ...prev, status: e.target.value as any } : null)}
                     label="ステータス"
+                    sx={{
+                      borderRadius: 2,
+                    }}
                   >
-                    <MenuItem value="todo">未着手</MenuItem>
-                    <MenuItem value="inProgress">進行中</MenuItem>
-                    <MenuItem value="done">完了</MenuItem>
+                    <MenuItem value="todo">
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#64748b' }} />
+                        未着手
+                      </Box>
+                    </MenuItem>
+                    <MenuItem value="inProgress">
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#6366f1' }} />
+                        進行中
+                      </Box>
+                    </MenuItem>
+                    <MenuItem value="done">
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#10b981' }} />
+                        完了
+                      </Box>
+                    </MenuItem>
                   </Select>
                 </FormControl>
+              </Grid>
+              
+              <Grid item xs={12} md={6}>
                 <FormControl fullWidth>
                   <InputLabel>優先度</InputLabel>
                   <Select
                     value={selectedTask?.priority || 'medium'}
                     onChange={(e) => setSelectedTask(prev => prev ? { ...prev, priority: e.target.value as any } : null)}
                     label="優先度"
+                    sx={{
+                      borderRadius: 2,
+                    }}
                   >
-                    <MenuItem value="low">低</MenuItem>
-                    <MenuItem value="medium">中</MenuItem>
-                    <MenuItem value="high">高</MenuItem>
+                    <MenuItem value="low">
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#10b981' }} />
+                        低優先度
+                      </Box>
+                    </MenuItem>
+                    <MenuItem value="medium">
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#f59e0b' }} />
+                        中優先度
+                      </Box>
+                    </MenuItem>
+                    <MenuItem value="high">
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#ef4444' }} />
+                        高優先度
+                      </Box>
+                    </MenuItem>
                   </Select>
                 </FormControl>
-              </Box>
-              <TextField
-                fullWidth
-                label="期限"
-                type="date"
-                value={selectedTask?.dueDate || ''}
-                onChange={(e) => setSelectedTask(prev => prev ? { ...prev, dueDate: e.target.value } : null)}
-                InputLabelProps={{ shrink: true }}
-                sx={{ mb: 2 }}
-              />
-              <TextField
-                fullWidth
-                label="担当者"
-                value={selectedTask?.assignee || ''}
-                onChange={(e) => setSelectedTask(prev => prev ? { ...prev, assignee: e.target.value } : null)}
-                placeholder="担当者の名前を入力..."
-              />
-            </Box>
+              </Grid>
+              
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="期限"
+                  type="date"
+                  value={selectedTask?.dueDate || ''}
+                  onChange={(e) => setSelectedTask(prev => prev ? { ...prev, dueDate: e.target.value } : null)}
+                  InputLabelProps={{ shrink: true }}
+                  variant="outlined"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                    }
+                  }}
+                />
+              </Grid>
+              
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="担当者"
+                  value={selectedTask?.assignee || ''}
+                  onChange={(e) => setSelectedTask(prev => prev ? { ...prev, assignee: e.target.value } : null)}
+                  placeholder="担当者の名前を入力..."
+                  variant="outlined"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                    }
+                  }}
+                />
+              </Grid>
+            </Grid>
           </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setTaskDialogOpen(false)}>
+          
+          <DialogActions sx={{ p: 3, pt: 0 }}>
+            <Button 
+              onClick={() => setTaskDialogOpen(false)}
+              variant="outlined"
+              sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
+            >
               キャンセル
             </Button>
             <Button
               variant="contained"
               onClick={handleTaskUpdate}
               disabled={!selectedTask?.title}
-              sx={{
-                backgroundColor: '#007bff',
+              sx={{ 
+                borderRadius: 2, 
+                textTransform: 'none', 
+                fontWeight: 600,
+                background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
                 '&:hover': {
-                  backgroundColor: '#0056b3',
-                },
+                  background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
+                }
               }}
             >
               保存
             </Button>
-                   </DialogActions>
-       </Dialog>
+          </DialogActions>
+        </Dialog>
 
        <TaskForm
          open={taskFormOpen}

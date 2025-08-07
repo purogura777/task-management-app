@@ -30,15 +30,15 @@ export const storage = getStorage(app);
 
 // ローカルストレージの重複データをクリアする関数
 const clearDuplicateTasks = (userId: string) => {
-  const savedTasks = secureLocalStorage.getItem(`tasks_${userId}`);
+  const savedTasks = localStorage.getItem(`tasks_${userId}`);
   if (savedTasks) {
-    const tasks = savedTasks;
+    const tasks = JSON.parse(savedTasks);
     const uniqueTasks = tasks.filter((task: any, index: number, self: any[]) => 
       index === self.findIndex((t: any) => t.id === task.id)
     );
     if (uniqueTasks.length !== tasks.length) {
       console.log('重複データをクリアしました');
-      secureLocalStorage.setItem(`tasks_${userId}`, uniqueTasks);
+      localStorage.setItem(`tasks_${userId}`, JSON.stringify(uniqueTasks));
       return uniqueTasks;
     }
   }
@@ -57,10 +57,13 @@ export const setupRealtimeListener = (userId: string, callback: (tasks: any[]) =
       // 重複データをクリア
       const cleanedTasks = clearDuplicateTasks(userId);
       
-      const savedTasks = secureLocalStorage.getItem(`tasks_${userId}`);
+      const savedTasks = localStorage.getItem(`tasks_${userId}`);
       if (savedTasks) {
-        callback(savedTasks);
+        const tasks = JSON.parse(savedTasks);
+        console.log('ローカルストレージから取得したタスク:', tasks);
+        callback(tasks);
       } else {
+        console.log('ローカルストレージにタスクがありません');
         callback([]);
       }
       
@@ -69,6 +72,7 @@ export const setupRealtimeListener = (userId: string, callback: (tasks: any[]) =
         const currentTasks = localStorage.getItem(`tasks_${userId}`);
         if (currentTasks) {
           const tasks = JSON.parse(currentTasks);
+          console.log('ローカルストレージの更新を検知:', tasks.length);
           callback(tasks);
         } else {
           callback([]);
@@ -98,20 +102,25 @@ export const setupRealtimeListener = (userId: string, callback: (tasks: any[]) =
       console.log('Firebaseからタスクを取得:', tasks.length);
       callback(tasks);
     }, (error) => {
-      console.error('Firebaseリスナーエラー:', error);
-      // エラーが発生した場合はローカルストレージから読み込み
+      console.error('Firebaseリスナーのエラー:', error);
+      // エラー時はローカルストレージから読み込み
       const savedTasks = localStorage.getItem(`tasks_${userId}`);
       if (savedTasks) {
         const tasks = JSON.parse(savedTasks);
         callback(tasks);
+      } else {
+        callback([]);
       }
     });
   } catch (error) {
     console.error('Firebaseリスナーの設定に失敗しました:', error);
-    // エラーが発生した場合はローカルストレージから読み込み
-    const savedTasks = secureLocalStorage.getItem(`tasks_${userId}`);
+    // エラー時はローカルストレージから読み込み
+    const savedTasks = localStorage.getItem(`tasks_${userId}`);
     if (savedTasks) {
-      callback(savedTasks);
+      const tasks = JSON.parse(savedTasks);
+      callback(tasks);
+    } else {
+      callback([]);
     }
     return () => {};
   }
