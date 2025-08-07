@@ -80,7 +80,7 @@ export const setupRealtimeListener = (userId: string, callback: (tasks: any[]) =
       };
       
       // 定期的にローカルストレージをチェック（簡易的なリアルタイム更新）
-      const interval = setInterval(checkForUpdates, 2000); // 間隔を2秒に変更
+      const interval = setInterval(checkForUpdates, 1000); // 間隔を1秒に変更
       
       // セキュリティログ
       const securityLogger = SecurityLogger.getInstance();

@@ -29,6 +29,7 @@ import {
   Slider,
   Switch,
   FormControlLabel,
+  Badge,
 } from '@mui/material';
 import {
   Add,
@@ -66,6 +67,8 @@ import {
   Group,
   Public,
   Lock,
+  Link,
+  LinkOff,
 } from '@mui/icons-material';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
@@ -131,6 +134,8 @@ const MindMapView: React.FC = () => {
   const [connectionMode, setConnectionMode] = useState(false);
   const [connectionStart, setConnectionStart] = useState<string | null>(null);
   const [connectionEnd, setConnectionEnd] = useState<string | null>(null);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
   // Firebaseリスナーの設定
   useEffect(() => {
@@ -197,6 +202,16 @@ const MindMapView: React.FC = () => {
       localStorage.setItem(`mindmap_${user.id}`, JSON.stringify(nodes));
     }
   }, [nodes, user?.id]);
+
+  // マウス位置の追跡
+  useEffect(() => {
+    const handleMouseMove = (event: MouseEvent) => {
+      setMousePosition({ x: event.clientX, y: event.clientY });
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    return () => document.removeEventListener('mousemove', handleMouseMove);
+  }, []);
 
   const createDefaultMindMap = () => {
     const defaultNodes: MindMapNode[] = [
@@ -409,16 +424,18 @@ const MindMapView: React.FC = () => {
     ));
   };
 
-  // ドラッグ機能
+  // 改善されたドラッグ機能
   const handleDragStart = (nodeId: string, event: React.MouseEvent) => {
-    if (isPanMode) return;
+    if (isPanMode || connectionMode) return;
+    event.preventDefault();
     setIsDragging(true);
     setDraggedNode(nodeId);
     setDragStart({ x: event.clientX, y: event.clientY });
+    document.body.style.cursor = 'grabbing';
   };
 
   const handleDrag = useCallback((event: MouseEvent) => {
-    if (!isDragging || !draggedNode || isPanMode) return;
+    if (!isDragging || !draggedNode || isPanMode || connectionMode) return;
 
     const deltaX = event.clientX - dragStart.x;
     const deltaY = event.clientY - dragStart.y;
@@ -439,11 +456,12 @@ const MindMapView: React.FC = () => {
     });
 
     setDragStart({ x: event.clientX, y: event.clientY });
-  }, [isDragging, draggedNode, dragStart, isPanMode, user?.id]);
+  }, [isDragging, draggedNode, dragStart, isPanMode, connectionMode, user?.id]);
 
   const handleDragEnd = () => {
     setIsDragging(false);
     setDraggedNode(null);
+    document.body.style.cursor = 'default';
     
     // ノードの位置をローカルストレージに保存
     if (nodes.length > 0 && user?.id) {
@@ -452,7 +470,7 @@ const MindMapView: React.FC = () => {
     }
   };
 
-  // パン機能 - より直感的な操作に改善
+  // 改善されたパン機能
   const handlePanStart = (event: React.MouseEvent) => {
     // パンモードがオンの場合のみ、または右クリックでパン
     if (isPanMode || event.button === 2) {
@@ -463,7 +481,7 @@ const MindMapView: React.FC = () => {
   };
 
   const handlePanMove = (event: MouseEvent) => {
-    if (!dragStart) return;
+    if (!dragStart || (!isPanMode && event.button !== 2)) return;
     
     const deltaX = event.clientX - dragStart.x;
     const deltaY = event.clientY - dragStart.y;
@@ -487,7 +505,7 @@ const MindMapView: React.FC = () => {
     document.body.style.cursor = 'default';
   };
 
-  // 接続機能
+  // 改善された接続機能
   const startConnection = (nodeId: string) => {
     if (!connectionMode) return;
     setConnectionStart(nodeId);
@@ -607,7 +625,12 @@ const MindMapView: React.FC = () => {
                   size="small"
                 />
               }
-              label="パンモード"
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <PanTool sx={{ fontSize: 16 }} />
+                  <Typography variant="body2">パンモード</Typography>
+                </Box>
+              }
             />
             <FormControlLabel
               control={
@@ -617,7 +640,12 @@ const MindMapView: React.FC = () => {
                   size="small"
                 />
               }
-              label="自動レイアウト"
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <AutoFixHigh sx={{ fontSize: 16 }} />
+                  <Typography variant="body2">自動レイアウト</Typography>
+                </Box>
+              }
             />
             <FormControlLabel
               control={
@@ -632,7 +660,12 @@ const MindMapView: React.FC = () => {
                   size="small"
                 />
               }
-              label="接続モード"
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Link sx={{ fontSize: 16 }} />
+                  <Typography variant="body2">接続モード</Typography>
+                </Box>
+              }
             />
             <FormControlLabel
               control={
@@ -642,14 +675,21 @@ const MindMapView: React.FC = () => {
                   size="small"
                 />
               }
-              label="コラボレーション"
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Group sx={{ fontSize: 16 }} />
+                  <Typography variant="body2">コラボレーション</Typography>
+                </Box>
+              }
             />
             <Tooltip title="お気に入りのみ表示">
               <IconButton 
                 onClick={() => setShowFavorites(!showFavorites)}
                 color={showFavorites ? 'primary' : 'default'}
               >
-                <Favorite />
+                <Badge badgeContent={nodes.filter(n => n.isFavorite).length} color="primary">
+                  <Favorite />
+                </Badge>
               </IconButton>
             </Tooltip>
             <Tooltip title="ズームイン">
@@ -684,6 +724,40 @@ const MindMapView: React.FC = () => {
       </AppBar>
 
       {isLoading && <LinearProgress />}
+
+      {/* パンモードインジケーター */}
+      {isPanMode && (
+        <Alert 
+          severity="info" 
+          sx={{ 
+            position: 'absolute', 
+            top: 80, 
+            left: '50%', 
+            transform: 'translateX(-50%)', 
+            zIndex: 1000,
+            borderRadius: 2,
+          }}
+        >
+          パンモード: キャンバスをドラッグして移動できます
+        </Alert>
+      )}
+
+      {/* 接続モードインジケーター */}
+      {connectionMode && (
+        <Alert 
+          severity="warning" 
+          sx={{ 
+            position: 'absolute', 
+            top: isPanMode ? 140 : 80, 
+            left: '50%', 
+            transform: 'translateX(-50%)', 
+            zIndex: 1000,
+            borderRadius: 2,
+          }}
+        >
+          接続モード: ノードをクリックして接続を作成できます
+        </Alert>
+      )}
 
       {/* マインドマップキャンバス */}
       <Paper
@@ -747,6 +821,34 @@ const MindMapView: React.FC = () => {
                 />
               );
             })}
+            
+            {/* 接続中の線を描画 */}
+            {connectionStart && (
+              <line
+                x1={filteredNodes.find(n => n.id === connectionStart)?.position.x + 150 || 0}
+                y1={filteredNodes.find(n => n.id === connectionStart)?.position.y + 75 || 0}
+                x2={mousePosition.x}
+                y2={mousePosition.y}
+                stroke="#fbbf24"
+                strokeWidth={4}
+                opacity={0.8}
+                strokeDasharray="10,5"
+              />
+            )}
+            
+            {/* 接続中の線を描画 */}
+            {connectionStart && (
+              <line
+                x1={filteredNodes.find(n => n.id === connectionStart)?.position.x + 150 || 0}
+                y1={filteredNodes.find(n => n.id === connectionStart)?.position.y + 75 || 0}
+                x2={mousePosition.x}
+                y2={mousePosition.y}
+                stroke="#fbbf24"
+                strokeWidth={4}
+                opacity={0.8}
+                strokeDasharray="10,5"
+              />
+            )}
           </svg>
 
           {/* ノードを描画 */}

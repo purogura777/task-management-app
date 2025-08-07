@@ -95,22 +95,18 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     if (!user?.id) return;
 
-    // デフォルトのプロジェクト/ワークスペースを設定
+    // 保存されたプロジェクト/ワークスペースを復元
     const savedProject = localStorage.getItem('currentProject');
     const savedWorkspace = localStorage.getItem('currentWorkspace');
     
-    if (!savedProject) {
-      localStorage.setItem('currentProject', '個人プロジェクト');
-      setCurrentProject('個人プロジェクト');
-    } else {
+    if (savedProject) {
       setCurrentProject(savedProject);
+      console.log('Dashboard: 保存されたプロジェクトを復元:', savedProject);
     }
     
-    if (!savedWorkspace) {
-      localStorage.setItem('currentWorkspace', '個人プロジェクト');
-      setCurrentWorkspace('個人プロジェクト');
-    } else {
+    if (savedWorkspace) {
       setCurrentWorkspace(savedWorkspace);
+      console.log('Dashboard: 保存されたワークスペースを復元:', savedWorkspace);
     }
 
     // Firebaseのリアルタイムリスナーを設定

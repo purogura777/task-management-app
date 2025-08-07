@@ -201,6 +201,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
 
   // バッジ数を更新
   const updateBadgeCounts = () => {
+    console.log('Sidebar: updateBadgeCounts呼び出し');
     console.log('Sidebar: タスク数:', tasks.length);
     console.log('Sidebar: タスク詳細:', tasks);
     
@@ -226,35 +227,45 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
     const workCount = tasks.filter((task: any) => 
       task.project === '仕事'
     ).length;
+    console.log('Sidebar: 仕事プロジェクトのタスク数:', workCount);
     
     // 学習プロジェクトのタスク数（projectが'学習'のタスク）
     const studyCount = tasks.filter((task: any) => 
       task.project === '学習'
     ).length;
+    console.log('Sidebar: 学習プロジェクトのタスク数:', studyCount);
 
     // ワークスペースのバッジ数を更新
-    setWorkspaceItems(prev => prev.map(item => {
-      if (item.text === '個人プロジェクト') {
-        return { ...item, badge: personalCount > 0 ? personalCount : null };
-      } else if (item.text === 'チームA') {
-        return { ...item, badge: teamACount > 0 ? teamACount : null };
-      } else if (item.text === 'プロジェクトX') {
-        return { ...item, badge: projectXCount > 0 ? projectXCount : null };
-      }
-      return item;
-    }));
+    setWorkspaceItems(prev => {
+      const updated = prev.map(item => {
+        if (item.text === '個人プロジェクト') {
+          return { ...item, badge: personalCount > 0 ? personalCount : null };
+        } else if (item.text === 'チームA') {
+          return { ...item, badge: teamACount > 0 ? teamACount : null };
+        } else if (item.text === 'プロジェクトX') {
+          return { ...item, badge: projectXCount > 0 ? projectXCount : null };
+        }
+        return item;
+      });
+      console.log('Sidebar: ワークスペースバッジ更新:', updated);
+      return updated;
+    });
 
     // プロジェクトのバッジ数を更新
-    setProjectItems(prev => prev.map(item => {
-      if (item.text === '個人プロジェクト') {
-        return { ...item, badge: personalCount > 0 ? personalCount : null };
-      } else if (item.text === '仕事') {
-        return { ...item, badge: workCount > 0 ? workCount : null };
-      } else if (item.text === '学習') {
-        return { ...item, badge: studyCount > 0 ? studyCount : null };
-      }
-      return item;
-    }));
+    setProjectItems(prev => {
+      const updated = prev.map(item => {
+        if (item.text === '個人プロジェクト') {
+          return { ...item, badge: personalCount > 0 ? personalCount : null };
+        } else if (item.text === '仕事') {
+          return { ...item, badge: workCount > 0 ? workCount : null };
+        } else if (item.text === '学習') {
+          return { ...item, badge: studyCount > 0 ? studyCount : null };
+        }
+        return item;
+      });
+      console.log('Sidebar: プロジェクトバッジ更新:', updated);
+      return updated;
+    });
   };
 
   // コンポーネントマウント時にバッジ数を計算し、現在の選択状態を復元
@@ -263,6 +274,8 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
 
     // Firebaseのリアルタイムリスナーを設定
     const unsubscribe = setupRealtimeListener(user.id, (firebaseTasks) => {
+      console.log('Sidebar: Firebaseからタスクを受信:', firebaseTasks);
+      console.log('Sidebar: 受信したタスク数:', firebaseTasks.length);
       setTasks(firebaseTasks);
       updateBadgeCounts();
     });
@@ -273,26 +286,33 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
     
     if (savedProject) {
       setCurrentProject(savedProject);
+      console.log('Sidebar: 保存されたプロジェクトを復元:', savedProject);
     }
     if (savedWorkspace) {
       setCurrentWorkspace(savedWorkspace);
+      console.log('Sidebar: 保存されたワークスペースを復元:', savedWorkspace);
     }
 
     return () => unsubscribe();
   }, [user?.id]);
 
-  // 選択状態の変更を監視
+  // タスクが更新された時にバッジ数を再計算
   useEffect(() => {
-    const savedProject = localStorage.getItem('currentProject');
-    const savedWorkspace = localStorage.getItem('currentWorkspace');
-    
-    if (savedProject !== currentProject) {
-      setCurrentProject(savedProject);
+    console.log('Sidebar: タスク更新によりバッジ数を再計算, タスク数:', tasks.length);
+    updateBadgeCounts();
+  }, [tasks]);
+
+  // 選択状態の変更を監視し、永続化
+  useEffect(() => {
+    if (currentProject) {
+      localStorage.setItem('currentProject', currentProject);
+      console.log('Sidebar: プロジェクト選択を保存:', currentProject);
     }
-    if (savedWorkspace !== currentWorkspace) {
-      setCurrentWorkspace(savedWorkspace);
+    if (currentWorkspace) {
+      localStorage.setItem('currentWorkspace', currentWorkspace);
+      console.log('Sidebar: ワークスペース選択を保存:', currentWorkspace);
     }
-  }, []); // 依存配列を空にして、マウント時のみ実行
+  }, [currentProject, currentWorkspace]);
 
   const handleNavigation = (path: string) => {
     navigate(path);
