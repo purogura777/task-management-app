@@ -105,6 +105,8 @@ interface Task {
   dueDate: string;
   assignee: string;
   createdAt: string;
+  project?: string;
+  workspace?: string;
 }
 
 const MindMapView: React.FC = () => {
@@ -127,26 +129,51 @@ const MindMapView: React.FC = () => {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [draggedNode, setDraggedNode] = useState<string | null>(null);
 
-  // リアルタイムリスナーを設定
+  // Firebaseリスナーの設定
   useEffect(() => {
     if (!user?.id) return;
 
     setIsLoading(true);
     const unsubscribe = setupRealtimeListener(user.id, (firebaseTasks) => {
       setTasks(firebaseTasks);
+      
+      // マインドマップノードが存在しない場合はデフォルトを作成
+      const existingNodes = localStorage.getItem('mindMapNodes');
+      if (!existingNodes) {
+        createDefaultMindMap();
+      } else {
+        try {
+          const parsedNodes = JSON.parse(existingNodes);
+          setNodes(parsedNodes);
+        } catch (error) {
+          console.error('マインドマップノードの読み込みに失敗:', error);
+          createDefaultMindMap();
+        }
+      }
       setIsLoading(false);
     });
 
-    // マインドマップノードの初期化
-    const savedNodes = localStorage.getItem(`mindmap_${user.id}`);
-    if (savedNodes) {
-      setNodes(JSON.parse(savedNodes));
-    } else {
-      createDefaultMindMap();
-    }
-
     return () => unsubscribe();
   }, [user?.id]);
+
+  // フィルタリングイベントの監視
+  useEffect(() => {
+    const handleFilterChange = (event: CustomEvent) => {
+      const { type, value, filteredTasks } = event.detail;
+      console.log('MindMapView: フィルタ変更を検知:', type, value, filteredTasks);
+      
+      // フィルタリングされたタスクを設定
+      if (filteredTasks) {
+        setTasks(filteredTasks);
+      }
+    };
+
+    window.addEventListener('filterChanged', handleFilterChange as EventListener);
+    
+    return () => {
+      window.removeEventListener('filterChanged', handleFilterChange as EventListener);
+    };
+  }, []);
 
   // ノードの変更を保存
   useEffect(() => {
@@ -293,10 +320,17 @@ const MindMapView: React.FC = () => {
       dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       assignee: user?.name || '未設定',
       createdAt: new Date().toISOString(),
+      project: node.tags?.[0] || '個人プロジェクト',
+      workspace: node.tags?.[1] || 'チームA',
     };
 
-    saveTask(user?.id || '', task);
-    toast.success('タスクに変換しました');
+    if (user?.id) {
+      saveTask(user.id, task);
+      toast.success('タスクに変換しました');
+      
+      // タスクリストに追加
+      setTasks(prev => [...prev, task]);
+    }
   };
 
   const saveNode = () => {

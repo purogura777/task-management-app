@@ -141,12 +141,14 @@ const KanbanBoard: React.FC = () => {
   // カラムの更新
   useEffect(() => {
     updateColumns();
-  }, [tasks]);
+  }, [tasks, user?.id]);
 
   const updateColumns = () => {
     const todoTasks = tasks.filter(task => task.status === 'todo');
     const inProgressTasks = tasks.filter(task => task.status === 'inProgress');
     const doneTasks = tasks.filter(task => task.status === 'done');
+
+    console.log('KanbanBoard: タスク更新', { todoTasks, inProgressTasks, doneTasks });
 
     setColumns([
       {
@@ -210,7 +212,7 @@ const KanbanBoard: React.FC = () => {
       return;
     }
 
-    // アニメーション付きでタスクを移動
+    // タスクを移動
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
 
@@ -417,9 +419,6 @@ const KanbanBoard: React.FC = () => {
             gap: 2, 
             height: 'calc(100% - 80px)', 
             overflow: 'auto',
-            transform: `scale(${zoomLevel})`,
-            transformOrigin: 'top left',
-            transition: 'transform 0.3s ease',
           }}
         >
           {columns.map((column) => (
@@ -517,53 +516,41 @@ const KanbanBoard: React.FC = () => {
                       >
                         <AnimatePresence>
                           {column.tasks.map((task, index) => (
-                            <Draggable 
-                              key={task.id} 
-                              draggableId={task.id} 
-                              index={index}
-                              isDragDisabled={!dragEnabled}
-                            >
+                                                         <Draggable 
+                               key={task.id} 
+                               draggableId={task.id} 
+                               index={index}
+                             >
                               {(provided, snapshot) => (
-                                <motion.div
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                                                     initial={showAnimations ? { opacity: 0, y: 20 } : { opacity: 1, y: 0 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                                                     exit={showAnimations ? { opacity: 0, y: -20 } : { opacity: 1, y: 0 }}
-                                  transition={{ 
-                                    duration: showAnimations ? 0.3 : 0,
-                                    ease: 'easeOut',
-                                  }}
-                                                                     whileHover={showAnimations ? { 
-                                     scale: 1.02,
-                                     y: -2,
-                                   } : undefined}
-                                  style={{
-                                    ...provided.draggableProps.style,
-                                    transform: snapshot.isDragging 
-                                      ? `${provided.draggableProps.style?.transform} rotate(3deg)` 
-                                      : provided.draggableProps.style?.transform,
-                                  }}
-                                >
-                                  <Card
-                                    {...provided.dragHandleProps}
-                                    sx={{
-                                      mb: compactMode ? 1 : 2,
-                                      borderRadius: 2,
-                                      boxShadow: snapshot.isDragging 
-                                        ? '0 12px 40px rgba(0, 0, 0, 0.3)' 
-                                        : '0 2px 8px rgba(0, 0, 0, 0.1)',
-                                      cursor: dragEnabled ? 'grab' : 'default',
-                                      '&:active': {
-                                        cursor: dragEnabled ? 'grabbing' : 'default',
-                                      },
-                                      '&:hover': {
-                                        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',
-                                      },
-                                      transition: 'all 0.2s ease',
-                                      border: isOverdue(task.dueDate) ? '2px solid #ef4444' : 'none',
-                                    }}
-                                  >
+                                                                 <div
+                                   ref={provided.innerRef}
+                                   {...provided.draggableProps}
+                                   style={{
+                                     ...provided.draggableProps.style,
+                                     transform: snapshot.isDragging 
+                                       ? `${provided.draggableProps.style?.transform} rotate(3deg)` 
+                                       : provided.draggableProps.style?.transform,
+                                   }}
+                                 >
+                                                                     <Card
+                                     {...provided.dragHandleProps}
+                                     sx={{
+                                       mb: compactMode ? 1 : 2,
+                                       borderRadius: 2,
+                                       boxShadow: snapshot.isDragging 
+                                         ? '0 12px 40px rgba(0, 0, 0, 0.3)' 
+                                         : '0 2px 8px rgba(0, 0, 0, 0.1)',
+                                       cursor: 'grab',
+                                       '&:active': {
+                                         cursor: 'grabbing',
+                                       },
+                                       '&:hover': {
+                                         boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',
+                                       },
+                                       transition: 'all 0.2s ease',
+                                       border: isOverdue(task.dueDate) ? '2px solid #ef4444' : 'none',
+                                     }}
+                                   >
                                     <CardContent sx={{ p: compactMode ? 1.5 : 2 }}>
                                       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 1 }}>
                                         <Typography
@@ -643,10 +630,10 @@ const KanbanBoard: React.FC = () => {
                                         </Box>
                                       </Box>
                                     </CardContent>
-                                  </Card>
-                                </motion.div>
-                              )}
-                            </Draggable>
+                                                                     </Card>
+                                 </div>
+                               )}
+                             </Draggable>
                           ))}
                         </AnimatePresence>
                         {provided.placeholder}
