@@ -96,10 +96,29 @@ const TimelineView: React.FC = () => {
           endDate: task.endDate || format(addDays(new Date(), index * 2 + 1), 'yyyy-MM-dd'),
         }));
         setTasks(tasksWithDates);
+        // フィルタリング状態を永続化
+        localStorage.setItem('timeline_filtered_tasks', JSON.stringify(tasksWithDates));
+        localStorage.setItem('timeline_filter_type', type);
+        localStorage.setItem('timeline_filter_value', value);
       }
     };
 
     window.addEventListener('filterChanged', handleFilterChange as EventListener);
+    
+    // コンポーネントマウント時に保存されたフィルタリング状態を復元
+    const savedFilteredTasks = localStorage.getItem('timeline_filtered_tasks');
+    const savedFilterType = localStorage.getItem('timeline_filter_type');
+    const savedFilterValue = localStorage.getItem('timeline_filter_value');
+    
+    if (savedFilteredTasks && savedFilterType && savedFilterValue) {
+      try {
+        const parsedTasks = JSON.parse(savedFilteredTasks);
+        setTasks(parsedTasks);
+        console.log('TimelineView: 保存されたフィルタリング状態を復元:', savedFilterType, savedFilterValue);
+      } catch (error) {
+        console.error('TimelineView: フィルタリング状態の復元に失敗:', error);
+      }
+    }
     
     return () => {
       window.removeEventListener('filterChanged', handleFilterChange as EventListener);

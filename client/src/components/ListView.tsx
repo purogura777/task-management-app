@@ -100,10 +100,29 @@ const ListView: React.FC = () => {
       // フィルタリングされたタスクを設定
       if (filteredTasks) {
         setTasks(filteredTasks);
+        // フィルタリング状態を永続化
+        localStorage.setItem('list_filtered_tasks', JSON.stringify(filteredTasks));
+        localStorage.setItem('list_filter_type', type);
+        localStorage.setItem('list_filter_value', value);
       }
     };
 
     window.addEventListener('filterChanged', handleFilterChange as EventListener);
+    
+    // コンポーネントマウント時に保存されたフィルタリング状態を復元
+    const savedFilteredTasks = localStorage.getItem('list_filtered_tasks');
+    const savedFilterType = localStorage.getItem('list_filter_type');
+    const savedFilterValue = localStorage.getItem('list_filter_value');
+    
+    if (savedFilteredTasks && savedFilterType && savedFilterValue) {
+      try {
+        const parsedTasks = JSON.parse(savedFilteredTasks);
+        setTasks(parsedTasks);
+        console.log('ListView: 保存されたフィルタリング状態を復元:', savedFilterType, savedFilterValue);
+      } catch (error) {
+        console.error('ListView: フィルタリング状態の復元に失敗:', error);
+      }
+    }
     
     return () => {
       window.removeEventListener('filterChanged', handleFilterChange as EventListener);

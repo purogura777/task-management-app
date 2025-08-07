@@ -128,10 +128,29 @@ const KanbanBoard: React.FC = () => {
       // フィルタリングされたタスクを設定
       if (filteredTasks) {
         setTasks(filteredTasks);
+        // フィルタリング状態を永続化
+        localStorage.setItem('kanban_filtered_tasks', JSON.stringify(filteredTasks));
+        localStorage.setItem('kanban_filter_type', type);
+        localStorage.setItem('kanban_filter_value', value);
       }
     };
 
     window.addEventListener('filterChanged', handleFilterChange as EventListener);
+    
+    // コンポーネントマウント時に保存されたフィルタリング状態を復元
+    const savedFilteredTasks = localStorage.getItem('kanban_filtered_tasks');
+    const savedFilterType = localStorage.getItem('kanban_filter_type');
+    const savedFilterValue = localStorage.getItem('kanban_filter_value');
+    
+    if (savedFilteredTasks && savedFilterType && savedFilterValue) {
+      try {
+        const parsedTasks = JSON.parse(savedFilteredTasks);
+        setTasks(parsedTasks);
+        console.log('KanbanBoard: 保存されたフィルタリング状態を復元:', savedFilterType, savedFilterValue);
+      } catch (error) {
+        console.error('KanbanBoard: フィルタリング状態の復元に失敗:', error);
+      }
+    }
     
     return () => {
       window.removeEventListener('filterChanged', handleFilterChange as EventListener);

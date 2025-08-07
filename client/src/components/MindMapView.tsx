@@ -126,8 +126,11 @@ const MindMapView: React.FC = () => {
   const [autoLayout, setAutoLayout] = useState(true);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [canvasRef] = useState(useRef<HTMLDivElement>(null));
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
   const [draggedNode, setDraggedNode] = useState<string | null>(null);
+  const [connectionMode, setConnectionMode] = useState(false);
+  const [connectionStart, setConnectionStart] = useState<string | null>(null);
+  const [connectionEnd, setConnectionEnd] = useState<string | null>(null);
 
   // Firebaseリスナーの設定
   useEffect(() => {
@@ -449,23 +452,82 @@ const MindMapView: React.FC = () => {
     }
   };
 
-  // パン機能
+  // パン機能 - より直感的な操作に改善
   const handlePanStart = (event: React.MouseEvent) => {
-    if (!isPanMode) return;
-    setDragStart({ x: event.clientX, y: event.clientY });
+    // パンモードがオンの場合のみ、または右クリックでパン
+    if (isPanMode || event.button === 2) {
+      event.preventDefault();
+      setDragStart({ x: event.clientX, y: event.clientY });
+      document.body.style.cursor = 'grabbing';
+    }
   };
 
   const handlePanMove = (event: MouseEvent) => {
-    if (!isPanMode) return;
+    if (!dragStart) return;
+    
     const deltaX = event.clientX - dragStart.x;
     const deltaY = event.clientY - dragStart.y;
-    setPan(prev => ({ x: prev.x + deltaX, y: prev.y + deltaY }));
-    setDragStart({ x: event.clientX, y: event.clientY });
     
-    // パン位置もローカルストレージに保存
-    if (user?.id) {
-      localStorage.setItem(`mindmap_pan_${user.id}`, JSON.stringify({ x: pan.x + deltaX, y: pan.y + deltaY }));
+    setPan(prev => {
+      const newPan = { x: prev.x + deltaX, y: prev.y + deltaY };
+      
+      // パン位置をローカルストレージに保存
+      if (user?.id) {
+        localStorage.setItem(`mindmap_pan_${user.id}`, JSON.stringify(newPan));
+      }
+      
+      return newPan;
+    });
+    
+    setDragStart({ x: event.clientX, y: event.clientY });
+  };
+
+  const handlePanEnd = () => {
+    setDragStart(null);
+    document.body.style.cursor = 'default';
+  };
+
+  // 接続機能
+  const startConnection = (nodeId: string) => {
+    if (!connectionMode) return;
+    setConnectionStart(nodeId);
+    toast.success('接続先のノードをクリックしてください');
+  };
+
+  const endConnection = (nodeId: string) => {
+    if (!connectionStart || connectionStart === nodeId) {
+      setConnectionStart(null);
+      return;
     }
+
+    // 接続を作成
+    const startNode = nodes.find(n => n.id === connectionStart);
+    const endNode = nodes.find(n => n.id === nodeId);
+
+    if (startNode && endNode) {
+      // 親子関係を設定
+      const updatedNodes = nodes.map(node => {
+        if (node.id === endNode.id) {
+          return { ...node, parentId: startNode.id };
+        }
+        if (node.id === startNode.id) {
+          return { ...node, children: [...node.children, endNode.id] };
+        }
+        return node;
+      });
+
+      setNodes(updatedNodes);
+      toast.success(`${startNode.title} と ${endNode.title} を接続しました`);
+    }
+
+    setConnectionStart(null);
+    setConnectionMode(false);
+  };
+
+  const cancelConnection = () => {
+    setConnectionStart(null);
+    setConnectionMode(false);
+    toast.error('接続をキャンセルしました');
   };
 
   // 自動レイアウト機能
@@ -510,13 +572,17 @@ const MindMapView: React.FC = () => {
   }, [isDragging, handleDrag]);
 
   useEffect(() => {
-    if (isPanMode) {
+    if (isPanMode || dragStart) {
       document.addEventListener('mousemove', handlePanMove);
+      document.addEventListener('mouseup', handlePanEnd);
+      document.addEventListener('contextmenu', (e) => e.preventDefault());
       return () => {
         document.removeEventListener('mousemove', handlePanMove);
+        document.removeEventListener('mouseup', handlePanEnd);
+        document.removeEventListener('contextmenu', (e) => e.preventDefault());
       };
     }
-  }, [isPanMode, handlePanMove]);
+  }, [isPanMode, dragStart, handlePanMove, handlePanEnd]);
 
   const filteredNodes = showFavorites ? nodes.filter(node => node.isFavorite) : nodes;
 
@@ -552,6 +618,21 @@ const MindMapView: React.FC = () => {
                 />
               }
               label="自動レイアウト"
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={connectionMode}
+                  onChange={(e) => {
+                    setConnectionMode(e.target.checked);
+                    if (!e.target.checked) {
+                      cancelConnection();
+                    }
+                  }}
+                  size="small"
+                />
+              }
+              label="接続モード"
             />
             <FormControlLabel
               control={
@@ -614,8 +695,12 @@ const MindMapView: React.FC = () => {
           background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
           borderRadius: 0,
           cursor: isPanMode ? 'grab' : 'default',
+          '&:active': {
+            cursor: isPanMode ? 'grabbing' : 'default',
+          },
         }}
         onMouseDown={isPanMode ? handlePanStart : undefined}
+        onContextMenu={(e) => e.preventDefault()}
       >
         <Box
           sx={{
@@ -685,9 +770,17 @@ const MindMapView: React.FC = () => {
                   sx={{
                     minWidth: node.size === 'large' ? 400 : node.size === 'small' ? 250 : 300,
                     maxWidth: node.size === 'large' ? 450 : node.size === 'small' ? 300 : 350,
-                    background: `linear-gradient(135deg, ${getNodeColor(node.type)} 0%, ${getNodeColor(node.type)}dd 100%)`,
+                    background: connectionStart === node.id 
+                      ? 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)'
+                      : `linear-gradient(135deg, ${getNodeColor(node.type)} 0%, ${getNodeColor(node.type)}dd 100%)`,
                     color: 'white',
-                    cursor: isPanMode ? 'grab' : 'pointer',
+                    cursor: connectionMode 
+                      ? connectionStart === node.id 
+                        ? 'not-allowed' 
+                        : 'crosshair'
+                      : isPanMode 
+                        ? 'grab' 
+                        : 'pointer',
                     borderRadius: 3,
                     boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
                     border: node.isFavorite ? '2px solid #fbbf24' : 'none',
@@ -695,9 +788,27 @@ const MindMapView: React.FC = () => {
                       transform: 'scale(1.05) translateY(-5px)',
                       boxShadow: '0 16px 48px rgba(0, 0, 0, 0.4)',
                     },
+                    ...(connectionMode && connectionStart !== node.id && {
+                      border: '2px dashed rgba(255, 255, 255, 0.5)',
+                      '&:hover': {
+                        border: '2px solid rgba(255, 255, 255, 0.8)',
+                        transform: 'scale(1.1) translateY(-5px)',
+                        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
+                      },
+                    }),
                     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   }}
-                  onClick={() => setSelectedNode(node)}
+                  onClick={() => {
+                    if (connectionMode) {
+                      if (connectionStart) {
+                        endConnection(node.id);
+                      } else {
+                        startConnection(node.id);
+                      }
+                    } else {
+                      setSelectedNode(node);
+                    }
+                  }}
                 >
                   <CardContent sx={{ p: 3 }}>
                     <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2 }}>
