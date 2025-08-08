@@ -138,7 +138,6 @@ const MindMapView: React.FC = () => {
   const [connectionStart, setConnectionStart] = useState<string | null>(null);
   const [connectionEnd, setConnectionEnd] = useState<string | null>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
   // Firebaseリスナーの設定
   useEffect(() => {
