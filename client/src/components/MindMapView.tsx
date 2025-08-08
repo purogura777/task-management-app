@@ -138,6 +138,8 @@ const MindMapView: React.FC = () => {
   const [connectionStart, setConnectionStart] = useState<string | null>(null);
   const [connectionEnd, setConnectionEnd] = useState<string | null>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  // パンモード表示用の状態
+  const [showPanModeAlert, setShowPanModeAlert] = useState(false);
 
   // Firebaseリスナーの設定
   useEffect(() => {
@@ -182,21 +184,48 @@ const MindMapView: React.FC = () => {
   // フィルタリングイベントの監視
   useEffect(() => {
     const handleFilterChange = (event: CustomEvent) => {
-      const { type, value, filteredTasks } = event.detail;
-      console.log('MindMapView: フィルタ変更を検知:', type, value, filteredTasks);
+      const { type, value } = event.detail;
+      console.log('MindMapView: フィルタ変更を検知:', type, value);
       
-      // フィルタリングされたタスクを設定
-      if (filteredTasks) {
-        setTasks(filteredTasks);
+      // グローバル選択を保存
+      if (type === 'workspace') {
+        localStorage.setItem('currentWorkspace', value);
+        localStorage.removeItem('currentProject');
+      } else if (type === 'project') {
+        localStorage.setItem('currentProject', value);
+        localStorage.removeItem('currentWorkspace');
+      }
+      
+      // 最新タスクをローカルから取得して再フィルタ
+      const raw = localStorage.getItem(`tasks_${user?.id}`);
+      if (raw) {
+        const all = JSON.parse(raw);
+        const filtered = type === 'workspace'
+          ? all.filter((t: any) => t.workspace === value || (!t.workspace && value === '個人プロジェクト'))
+          : all.filter((t: any) => t.project === value || (!t.project && value === '個人プロジェクト'));
+        setTasks(filtered);
       }
     };
 
     window.addEventListener('filterChanged', handleFilterChange as EventListener);
     
+    // 初期表示時にグローバル選択を適用
+    const workspace = localStorage.getItem('currentWorkspace');
+    const project = localStorage.getItem('currentProject');
+    const raw = localStorage.getItem(`tasks_${user?.id}`);
+    if (raw) {
+      const all = JSON.parse(raw);
+      if (workspace) {
+        setTasks(all.filter((t: any) => t.workspace === workspace || (!t.workspace && workspace === '個人プロジェクト')));
+      } else if (project) {
+        setTasks(all.filter((t: any) => t.project === project || (!t.project && project === '個人プロジェクト')));
+      }
+    }
+    
     return () => {
       window.removeEventListener('filterChanged', handleFilterChange as EventListener);
     };
-  }, []);
+  }, [user?.id]);
 
   // ノードの変更を保存
   useEffect(() => {
@@ -627,7 +656,13 @@ const MindMapView: React.FC = () => {
               control={
                 <Switch
                   checked={isPanMode}
-                  onChange={(e) => setIsPanMode(e.target.checked)}
+                  onChange={(e) => {
+                    setIsPanMode(e.target.checked);
+                    if (e.target.checked) {
+                      setShowPanModeAlert(true);
+                      setTimeout(() => setShowPanModeAlert(false), 2000); // 2秒後に非表示
+                    }
+                  }}
                   size="small"
                 />
               }
@@ -673,21 +708,23 @@ const MindMapView: React.FC = () => {
                 </Box>
               }
             />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={isCollaborationMode}
-                  onChange={(e) => setIsCollaborationMode(e.target.checked)}
-                  size="small"
-                />
-              }
-              label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <Group sx={{ fontSize: 16 }} />
-                  <Typography variant="body2">コラボレーション</Typography>
-                </Box>
-              }
-            />
+            <Tooltip title="コラボレーションモード: 他のユーザーとリアルタイムでマインドマップを共同編集できます">
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={isCollaborationMode}
+                    onChange={(e) => setIsCollaborationMode(e.target.checked)}
+                    size="small"
+                  />
+                }
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Group sx={{ fontSize: 16 }} />
+                    <Typography variant="body2">コラボレーション</Typography>
+                  </Box>
+                }
+              />
+            </Tooltip>
             <Tooltip title="お気に入りのみ表示">
               <IconButton 
                 onClick={() => setShowFavorites(!showFavorites)}
@@ -732,7 +769,7 @@ const MindMapView: React.FC = () => {
       {isLoading && <LinearProgress />}
 
       {/* パンモードインジケーター */}
-      {isPanMode && (
+      {showPanModeAlert && (
         <Alert 
           severity="info" 
           sx={{ 
@@ -754,7 +791,7 @@ const MindMapView: React.FC = () => {
           severity="warning" 
           sx={{ 
             position: 'absolute', 
-            top: isPanMode ? 140 : 80, 
+            top: showPanModeAlert ? 140 : 80, 
             left: '50%', 
             transform: 'translateX(-50%)', 
             zIndex: 1000,

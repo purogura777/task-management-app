@@ -111,134 +111,27 @@ const Dashboard: React.FC = () => {
 
     // Firebaseのリアルタイムリスナーを設定
     const unsubscribe = setupRealtimeListener(user.id, (firebaseTasks) => {
-      setTasks(firebaseTasks);
+      // グローバルフィルタ（currentWorkspace / currentProject）を適用
+      const workspace = localStorage.getItem('currentWorkspace');
+      const project = localStorage.getItem('currentProject');
+      let next = firebaseTasks;
+      if (workspace) {
+        next = next.filter((t: any) => t.workspace === workspace || (!t.workspace && workspace === '個人プロジェクト'));
+      } else if (project) {
+        next = next.filter((t: any) => t.project === project || (!t.project && project === '個人プロジェクト'));
+      }
+      setTasks(next);
       setLoading(false);
     });
 
-    // ローカルストレージからフィルター情報を読み込み
-    const filteredTasks = localStorage.getItem('filteredTasks');
-    if (filteredTasks) {
-      setCurrentFilter(savedProject || savedWorkspace || '');
-    }
-
-    // テスト用：初回アクセス時にサンプルデータを追加
-    const hasVisited = localStorage.getItem('hasVisited');
-    if (!hasVisited) {
-      console.log('サンプルデータを追加中...');
-      const sampleTasks = [
-        {
-          id: 'sample_1',
-          title: 'プロジェクト計画の作成',
-          description: '新しいプロジェクトの計画書を作成する',
-          status: 'todo' as const,
-          priority: 'high' as const,
-          dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          assignee: 'デモユーザー',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          project: '仕事',
-          workspace: 'チームA',
-        },
-        {
-          id: 'sample_2',
-          title: 'チームミーティング',
-          description: '週次チームミーティングの準備',
-          status: 'inProgress' as const,
-          priority: 'medium' as const,
-          dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          assignee: 'デモユーザー',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          project: '学習',
-          workspace: 'プロジェクトX',
-        },
-        {
-          id: 'sample_3',
-          title: 'ドキュメントの更新',
-          description: '技術文書の最新版に更新',
-          status: 'done' as const,
-          priority: 'low' as const,
-          dueDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          assignee: 'デモユーザー',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          project: '仕事',
-          workspace: 'チームA',
-        }
-      ];
-      
-      // サンプルデータをローカルストレージに直接保存
-      localStorage.setItem(`tasks_${user.id}`, JSON.stringify(sampleTasks));
-      console.log('サンプルデータをローカルストレージに保存しました');
-      
-      localStorage.setItem('hasVisited', 'true');
-    } else {
-      // 既存のタスクデータを確認
-      const existingTasks = localStorage.getItem(`tasks_${user.id}`);
-      if (existingTasks) {
-        const tasks = JSON.parse(existingTasks);
-        console.log('既存のタスクデータ:', tasks);
-        
-        // タスクデータが正しくない場合は再作成
-        if (tasks.length === 0 || !tasks.some((task: any) => task.assignee === 'デモユーザー')) {
-          console.log('タスクデータを再作成します...');
-          const sampleTasks = [
-            {
-              id: 'sample_1',
-              title: 'プロジェクト計画の作成',
-              description: '新しいプロジェクトの計画書を作成する',
-              status: 'todo' as const,
-              priority: 'high' as const,
-              dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-              assignee: 'デモユーザー',
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              project: '仕事',
-              workspace: 'チームA',
-            },
-            {
-              id: 'sample_2',
-              title: 'チームミーティング',
-              description: '週次チームミーティングの準備',
-              status: 'inProgress' as const,
-              priority: 'medium' as const,
-              dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-              assignee: 'デモユーザー',
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              project: '学習',
-              workspace: 'プロジェクトX',
-            },
-            {
-              id: 'sample_3',
-              title: 'ドキュメントの更新',
-              description: '技術文書の最新版に更新',
-              status: 'done' as const,
-              priority: 'low' as const,
-              dueDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-              assignee: 'デモユーザー',
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              project: '仕事',
-              workspace: 'チームA',
-            }
-          ];
-          
-          localStorage.setItem(`tasks_${user.id}`, JSON.stringify(sampleTasks));
-          console.log('タスクデータを再作成しました');
-        }
-      }
-    }
-
-
     return () => unsubscribe();
-  }, [user?.id, user?.name]);
+  }, [user?.id]);
 
   // フィルタリングイベントの監視
   useEffect(() => {
     const handleFilterChange = (event: CustomEvent) => {
-      const { type, value, filteredTasks } = event.detail;
-      console.log('フィルタ変更を検知:', type, value, filteredTasks);
+      const { type, value } = event.detail;
+      console.log('Dashboard: フィルタ変更を検知:', type, value);
       
       if (type === 'project') {
         setCurrentProject(value);
@@ -248,9 +141,14 @@ const Dashboard: React.FC = () => {
         setCurrentProject(null);
       }
       
-      // フィルタリングされたタスクを設定
-      if (filteredTasks) {
-        setTasks(filteredTasks);
+      // 最新タスクをローカルから取得して再フィルタ
+      const raw = localStorage.getItem(`tasks_${user?.id}`);
+      if (raw) {
+        const all = JSON.parse(raw);
+        const filtered = type === 'workspace'
+          ? all.filter((t: any) => t.workspace === value || (!t.workspace && value === '個人プロジェクト'))
+          : all.filter((t: any) => t.project === value || (!t.project && value === '個人プロジェクト'));
+        setTasks(filtered);
       }
     };
 
@@ -259,54 +157,15 @@ const Dashboard: React.FC = () => {
     return () => {
       window.removeEventListener('filterChanged', handleFilterChange as EventListener);
     };
-  }, []);
+  }, [user?.id]);
 
   // タスクの監視と通知の生成
 
   // フィルタリングされたタスクを取得
-  const getFilteredTasks = () => {
-    if (!currentProject && !currentWorkspace) {
-      return tasks;
-    }
-
-    return tasks.filter(task => {
-      // プロジェクトフィルタリング
-      if (currentProject) {
-        switch (currentProject) {
-          case '個人プロジェクト':
-            return !task.project || task.project === '個人プロジェクト' || task.assignee === 'デモユーザー';
-          case '仕事':
-            return task.project === '仕事';
-          case '学習':
-            return task.project === '学習';
-          default:
-            return task.project === currentProject;
-        }
-      }
-
-      // ワークスペースフィルタリング
-      if (currentWorkspace) {
-        switch (currentWorkspace) {
-          case '個人プロジェクト':
-            return !task.workspace || task.workspace === '個人プロジェクト' || task.assignee === 'デモユーザー';
-          case 'チームA':
-            return task.workspace === 'チームA';
-          case 'プロジェクトX':
-            return task.workspace === 'プロジェクトX';
-          default:
-            return task.workspace === currentWorkspace;
-        }
-      }
-
-      return true;
-    });
-  };
-
-  const filteredTasks = getFilteredTasks();
+  const filteredTasks = tasks;
 
   const clearFilter = () => {
     setCurrentFilter('');
-    localStorage.removeItem('filteredTasks');
     localStorage.removeItem('currentProject');
     localStorage.removeItem('currentWorkspace');
     setCurrentProject('個人プロジェクト');
