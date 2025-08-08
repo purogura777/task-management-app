@@ -59,9 +59,16 @@ export const setupRealtimeListener = (userId: string, callback: (tasks: any[]) =
       
       const savedTasks = localStorage.getItem(`tasks_${userId}`);
       if (savedTasks) {
-        const tasks = JSON.parse(savedTasks);
-        console.log('ローカルストレージから取得したタスク:', tasks);
-        callback(tasks);
+        try {
+          const tasks = JSON.parse(savedTasks);
+          console.log('ローカルストレージから取得したタスク:', tasks);
+          // 配列であることを確認
+          const tasksArray = Array.isArray(tasks) ? tasks : [];
+          callback(tasksArray);
+        } catch (error) {
+          console.error('ローカルストレージのタスクデータの解析に失敗:', error);
+          callback([]);
+        }
       } else {
         console.log('ローカルストレージにタスクがありません');
         callback([]);
@@ -71,9 +78,16 @@ export const setupRealtimeListener = (userId: string, callback: (tasks: any[]) =
       const checkForUpdates = () => {
         const currentTasks = localStorage.getItem(`tasks_${userId}`);
         if (currentTasks) {
-          const tasks = JSON.parse(currentTasks);
-          console.log('ローカルストレージの更新を検知:', tasks.length);
-          callback(tasks);
+          try {
+            const tasks = JSON.parse(currentTasks);
+            console.log('ローカルストレージの更新を検知:', tasks.length);
+            // 配列であることを確認
+            const tasksArray = Array.isArray(tasks) ? tasks : [];
+            callback(tasksArray);
+          } catch (error) {
+            console.error('ローカルストレージの更新データの解析に失敗:', error);
+            callback([]);
+          }
         } else {
           callback([]);
         }
@@ -106,8 +120,14 @@ export const setupRealtimeListener = (userId: string, callback: (tasks: any[]) =
       // エラー時はローカルストレージから読み込み
       const savedTasks = localStorage.getItem(`tasks_${userId}`);
       if (savedTasks) {
-        const tasks = JSON.parse(savedTasks);
-        callback(tasks);
+        try {
+          const tasks = JSON.parse(savedTasks);
+          const tasksArray = Array.isArray(tasks) ? tasks : [];
+          callback(tasksArray);
+        } catch (error) {
+          console.error('エラー時のローカルストレージデータの解析に失敗:', error);
+          callback([]);
+        }
       } else {
         callback([]);
       }
@@ -117,8 +137,14 @@ export const setupRealtimeListener = (userId: string, callback: (tasks: any[]) =
     // エラー時はローカルストレージから読み込み
     const savedTasks = localStorage.getItem(`tasks_${userId}`);
     if (savedTasks) {
-      const tasks = JSON.parse(savedTasks);
-      callback(tasks);
+      try {
+        const tasks = JSON.parse(savedTasks);
+        const tasksArray = Array.isArray(tasks) ? tasks : [];
+        callback(tasksArray);
+      } catch (error) {
+        console.error('エラー時のローカルストレージデータの解析に失敗:', error);
+        callback([]);
+      }
     } else {
       callback([]);
     }
@@ -134,8 +160,24 @@ export const saveTask = async (userId: string, task: any) => {
     // Firebaseが設定されていない場合はローカルストレージのみ使用
     if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
       console.log('Firebase設定がダミーのため、ローカルストレージに保存します');
-      const savedTasks = secureLocalStorage.getItem(`tasks_${userId}`);
-      const tasks = savedTasks || [];
+      
+      // ローカルストレージから既存のタスクを取得
+      const savedTasks = localStorage.getItem(`tasks_${userId}`);
+      let tasks = [];
+      
+      if (savedTasks) {
+        try {
+          tasks = JSON.parse(savedTasks);
+          // 配列であることを確認
+          if (!Array.isArray(tasks)) {
+            console.warn('ローカルストレージのタスクデータが配列ではありません。初期化します。');
+            tasks = [];
+          }
+        } catch (error) {
+          console.error('ローカルストレージのタスクデータの解析に失敗:', error);
+          tasks = [];
+        }
+      }
       
       // 既存のタスクを更新するか、新しいタスクを追加する
       const existingTaskIndex = tasks.findIndex((t: any) => t.id === task.id);
@@ -149,7 +191,8 @@ export const saveTask = async (userId: string, task: any) => {
         console.log('新しいタスクを追加しました');
       }
       
-      secureLocalStorage.setItem(`tasks_${userId}`, tasks);
+      // ローカルストレージに保存
+      localStorage.setItem(`tasks_${userId}`, JSON.stringify(tasks));
       
       // セキュリティログ
       const securityLogger = SecurityLogger.getInstance();
@@ -164,7 +207,20 @@ export const saveTask = async (userId: string, task: any) => {
     
     // ローカルストレージにも保存（バックアップ）
     const savedTasks = localStorage.getItem(`tasks_${userId}`);
-    const tasks = savedTasks ? JSON.parse(savedTasks) : [];
+    let tasks = [];
+    
+    if (savedTasks) {
+      try {
+        tasks = JSON.parse(savedTasks);
+        if (!Array.isArray(tasks)) {
+          tasks = [];
+        }
+      } catch (error) {
+        console.error('ローカルストレージのタスクデータの解析に失敗:', error);
+        tasks = [];
+      }
+    }
+    
     const existingTaskIndex = tasks.findIndex((t: any) => t.id === task.id);
     if (existingTaskIndex !== -1) {
       tasks[existingTaskIndex] = { ...tasks[existingTaskIndex], ...task };
@@ -176,7 +232,20 @@ export const saveTask = async (userId: string, task: any) => {
     console.error('タスクの保存に失敗しました:', error);
     // Firebaseが失敗した場合はローカルストレージに保存
     const savedTasks = localStorage.getItem(`tasks_${userId}`);
-    const tasks = savedTasks ? JSON.parse(savedTasks) : [];
+    let tasks = [];
+    
+    if (savedTasks) {
+      try {
+        tasks = JSON.parse(savedTasks);
+        if (!Array.isArray(tasks)) {
+          tasks = [];
+        }
+      } catch (error) {
+        console.error('エラー時のローカルストレージデータの解析に失敗:', error);
+        tasks = [];
+      }
+    }
+    
     const existingTaskIndex = tasks.findIndex((t: any) => t.id === task.id);
     if (existingTaskIndex !== -1) {
       tasks[existingTaskIndex] = { ...tasks[existingTaskIndex], ...task };

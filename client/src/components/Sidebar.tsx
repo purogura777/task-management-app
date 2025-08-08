@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Drawer,
   List,
@@ -200,10 +200,16 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
   };
 
   // バッジ数を更新
-  const updateBadgeCounts = () => {
+  const updateBadgeCounts = useCallback(() => {
     console.log('Sidebar: updateBadgeCounts呼び出し');
     console.log('Sidebar: タスク数:', tasks.length);
     console.log('Sidebar: タスク詳細:', tasks);
+    
+    // tasksが配列でない場合は処理をスキップ
+    if (!Array.isArray(tasks)) {
+      console.log('Sidebar: tasksが配列ではありません:', tasks);
+      return;
+    }
     
     // 個人プロジェクトのタスク数（デモユーザー、個人、またはassigneeが空のタスク）
     const personalCount = tasks.filter((task: any) => 
@@ -266,7 +272,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
       console.log('Sidebar: プロジェクトバッジ更新:', updated);
       return updated;
     });
-  };
+  }, [tasks]);
 
   // コンポーネントマウント時にバッジ数を計算し、現在の選択状態を復元
   useEffect(() => {
@@ -276,8 +282,10 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
     const unsubscribe = setupRealtimeListener(user.id, (firebaseTasks) => {
       console.log('Sidebar: Firebaseからタスクを受信:', firebaseTasks);
       console.log('Sidebar: 受信したタスク数:', firebaseTasks.length);
-      setTasks(firebaseTasks);
-      updateBadgeCounts();
+      
+      // firebaseTasksが配列でない場合は空配列に変換
+      const tasksArray = Array.isArray(firebaseTasks) ? firebaseTasks : [];
+      setTasks(tasksArray);
     });
 
     // 現在の選択状態を復元
@@ -296,11 +304,13 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
     return () => unsubscribe();
   }, [user?.id]);
 
-  // タスクが更新された時にバッジ数を再計算
+  // タスクが更新された時にバッジ数を再計算（依存関係を最適化）
   useEffect(() => {
-    console.log('Sidebar: タスク更新によりバッジ数を再計算, タスク数:', tasks.length);
-    updateBadgeCounts();
-  }, [tasks]);
+    if (Array.isArray(tasks) && tasks.length >= 0) {
+      console.log('Sidebar: タスク更新によりバッジ数を再計算, タスク数:', tasks.length);
+      updateBadgeCounts();
+    }
+  }, [tasks, updateBadgeCounts]);
 
   // 選択状態の変更を監視し、永続化
   useEffect(() => {
