@@ -652,62 +652,68 @@ const MindMapView: React.FC = () => {
           </Box>
           
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={isPanMode}
-                  onChange={(e) => {
-                    setIsPanMode(e.target.checked);
-                    if (e.target.checked) {
-                      setShowPanModeAlert(true);
-                      setTimeout(() => setShowPanModeAlert(false), 2000); // 2秒後に非表示
-                    }
-                  }}
-                  size="small"
-                />
-              }
-              label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <PanTool sx={{ fontSize: 16 }} />
-                  <Typography variant="body2">パンモード</Typography>
-                </Box>
-              }
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={autoLayout}
-                  onChange={(e) => setAutoLayout(e.target.checked)}
-                  size="small"
-                />
-              }
-              label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <AutoFixHigh sx={{ fontSize: 16 }} />
-                  <Typography variant="body2">自動レイアウト</Typography>
-                </Box>
-              }
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={connectionMode}
-                  onChange={(e) => {
-                    setConnectionMode(e.target.checked);
-                    if (!e.target.checked) {
-                      cancelConnection();
-                    }
-                  }}
-                  size="small"
-                />
-              }
-              label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <Link sx={{ fontSize: 16 }} />
-                  <Typography variant="body2">接続モード</Typography>
-                </Box>
-              }
-            />
+            <Tooltip title="パンモード: キャンバスをドラッグして移動できます">
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={isPanMode}
+                    onChange={(e) => {
+                      setIsPanMode(e.target.checked);
+                      if (e.target.checked) {
+                        setShowPanModeAlert(true);
+                        setTimeout(() => setShowPanModeAlert(false), 2000); // 2秒後に非表示
+                      }
+                    }}
+                    size="small"
+                  />
+                }
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <PanTool sx={{ fontSize: 16 }} />
+                    <Typography variant="body2">パンモード</Typography>
+                  </Box>
+                }
+              />
+            </Tooltip>
+            <Tooltip title="自動レイアウト: ノードを自動的に配置します">
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={autoLayout}
+                    onChange={(e) => setAutoLayout(e.target.checked)}
+                    size="small"
+                  />
+                }
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <AutoFixHigh sx={{ fontSize: 16 }} />
+                    <Typography variant="body2">自動レイアウト</Typography>
+                  </Box>
+                }
+              />
+            </Tooltip>
+            <Tooltip title="接続モード: ノードをクリックして接続を作成できます">
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={connectionMode}
+                    onChange={(e) => {
+                      setConnectionMode(e.target.checked);
+                      if (!e.target.checked) {
+                        cancelConnection();
+                      }
+                    }}
+                    size="small"
+                  />
+                }
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Link sx={{ fontSize: 16 }} />
+                    <Typography variant="body2">接続モード</Typography>
+                  </Box>
+                }
+              />
+            </Tooltip>
             <Tooltip title="コラボレーションモード: 他のユーザーとリアルタイムでマインドマップを共同編集できます">
               <FormControlLabel
                 control={
@@ -750,18 +756,20 @@ const MindMapView: React.FC = () => {
                 <CenterFocusStrong />
               </IconButton>
             </Tooltip>
-            <Button
-              variant="contained"
-              startIcon={<Add />}
-              onClick={() => addNode()}
-              sx={{ 
-                borderRadius: 2,
-                textTransform: 'none',
-                fontWeight: 600,
-              }}
-            >
-              ノードを追加
-            </Button>
+            <Tooltip title="新しいノードを追加">
+              <Button
+                variant="contained"
+                startIcon={<Add />}
+                onClick={() => addNode()}
+                sx={{ 
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                }}
+              >
+                ノードを追加
+              </Button>
+            </Tooltip>
           </Box>
         </Toolbar>
       </AppBar>
@@ -1047,34 +1055,13 @@ const MindMapView: React.FC = () => {
                     <Divider sx={{ my: 1, borderColor: 'rgba(255, 255, 255, 0.2)' }} />
                     
                     <Box sx={{ display: 'flex', gap: 1 }}>
-                      <Button 
-                        size="small" 
-                        variant="outlined" 
-                        onClick={(e) => { 
-                          e.stopPropagation(); 
-                          addNode(node.id); 
-                        }} 
-                        sx={{ 
-                          borderColor: 'white', 
-                          color: 'white', 
-                          borderRadius: 2, 
-                          textTransform: 'none', 
-                          fontWeight: 600,
-                          '&:hover': { 
-                            borderColor: 'white', 
-                            backgroundColor: 'rgba(255, 255, 255, 0.1)' 
-                          } 
-                        }}
-                      >
-                        子ノード追加
-                      </Button>
-                      {node.type === 'idea' && (
+                      <Tooltip title="子ノードを追加">
                         <Button 
                           size="small" 
                           variant="outlined" 
                           onClick={(e) => { 
                             e.stopPropagation(); 
-                            convertToTask(node); 
+                            addNode(node.id); 
                           }} 
                           sx={{ 
                             borderColor: 'white', 
@@ -1088,8 +1075,33 @@ const MindMapView: React.FC = () => {
                             } 
                           }}
                         >
-                          タスク化
+                          子ノード追加
                         </Button>
+                      </Tooltip>
+                      {node.type === 'idea' && (
+                        <Tooltip title="アイデアをタスクに変換">
+                          <Button 
+                            size="small" 
+                            variant="outlined" 
+                            onClick={(e) => { 
+                              e.stopPropagation(); 
+                              convertToTask(node); 
+                            }} 
+                            sx={{ 
+                              borderColor: 'white', 
+                              color: 'white', 
+                              borderRadius: 2, 
+                              textTransform: 'none', 
+                              fontWeight: 600,
+                              '&:hover': { 
+                                borderColor: 'white', 
+                                backgroundColor: 'rgba(255, 255, 255, 0.1)' 
+                              } 
+                            }}
+                          >
+                            タスク化
+                          </Button>
+                        </Tooltip>
                       )}
                     </Box>
                   </CardContent>

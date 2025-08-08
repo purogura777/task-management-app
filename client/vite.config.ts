@@ -24,7 +24,10 @@ export default defineConfig({
           animation: ['framer-motion', 'react-beautiful-dnd'],
           calendar: ['@fullcalendar/react', '@fullcalendar/daygrid'],
           utils: ['date-fns', 'react-hot-toast']
-        }
+        },
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]'
       }
     },
     chunkSizeWarningLimit: 1000,
