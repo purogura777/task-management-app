@@ -375,6 +375,10 @@ const MindMapView: React.FC = () => {
   };
 
   const convertToTask = (node: MindMapNode) => {
+    // 現在のワークスペース/プロジェクト情報を取得
+    const currentWorkspace = localStorage.getItem('currentWorkspace');
+    const currentProject = localStorage.getItem('currentProject');
+    
     const task: Task = {
       id: `task-${Date.now()}`,
       title: node.title,
@@ -384,8 +388,9 @@ const MindMapView: React.FC = () => {
       dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       assignee: user?.name || '未設定',
       createdAt: new Date().toISOString(),
-      project: node.tags?.[0] || '個人プロジェクト',
-      workspace: node.tags?.[1] || 'チームA',
+      // 現在のワークスペース/プロジェクト情報を優先し、ノードのタグをフォールバックとして使用
+      project: currentProject || node.tags?.[0] || '個人プロジェクト',
+      workspace: currentWorkspace || node.tags?.[1] || 'チームA',
     };
 
     if (user?.id) {

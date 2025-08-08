@@ -45,6 +45,8 @@ interface Task {
   assignee: string;
   createdAt: string;
   updatedAt: string;
+  project?: string;
+  workspace?: string;
 }
 
 interface TaskFormProps {
@@ -106,6 +108,10 @@ const TaskForm: React.FC<TaskFormProps> = ({ open, onClose, editingTask }) => {
     }
 
     try {
+      // 現在のワークスペース/プロジェクト情報を取得
+      const currentWorkspace = localStorage.getItem('currentWorkspace');
+      const currentProject = localStorage.getItem('currentProject');
+      
       const taskData: Task = {
         id: isEditing ? editingTask!.id : Date.now().toString(),
         title: formData.title,
@@ -116,6 +122,9 @@ const TaskForm: React.FC<TaskFormProps> = ({ open, onClose, editingTask }) => {
         assignee: user.name || '未設定',
         createdAt: isEditing ? editingTask!.createdAt : new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        // 現在のワークスペース/プロジェクト情報を設定
+        workspace: currentWorkspace || '個人プロジェクト',
+        project: currentProject || '個人プロジェクト',
       };
 
       if (isEditing) {

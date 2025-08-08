@@ -211,9 +211,9 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
       return;
     }
     
-    // 個人プロジェクトのタスク数（デモユーザー、個人、またはassigneeが空のタスク）
+    // 個人プロジェクトのタスク数（workspaceが'個人プロジェクト'または未設定のタスク）
     const personalCount = tasks.filter((task: any) => 
-      !task.assignee || task.assignee === 'デモユーザー' || task.assignee === '個人'
+      !task.workspace || task.workspace === '個人プロジェクト'
     ).length;
     console.log('Sidebar: 個人プロジェクトのタスク数:', personalCount);
     
