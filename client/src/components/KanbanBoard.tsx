@@ -112,7 +112,16 @@ const KanbanBoard: React.FC = () => {
     setIsLoading(true);
     // Firebaseのリアルタイムリスナーを設定
     const unsubscribe = setupRealtimeListener(user.id, (firebaseTasks) => {
-      setTasks(firebaseTasks);
+      // グローバルフィルタ（currentWorkspace / currentProject）を適用
+      const workspace = localStorage.getItem('currentWorkspace');
+      const project = localStorage.getItem('currentProject');
+      let next = firebaseTasks;
+      if (workspace) {
+        next = next.filter((t: any) => t.workspace === workspace || (!t.workspace && workspace === '個人プロジェクト'));
+      } else if (project) {
+        next = next.filter((t: any) => t.project === project || (!t.project && project === '個人プロジェクト'));
+      }
+      setTasks(next);
       setIsLoading(false);
     });
 
@@ -122,33 +131,39 @@ const KanbanBoard: React.FC = () => {
   // フィルタリングイベントの監視
   useEffect(() => {
     const handleFilterChange = (event: CustomEvent) => {
-      const { type, value, filteredTasks } = event.detail;
-      console.log('KanbanBoard: フィルタ変更を検知:', type, value, filteredTasks);
-      
-      // フィルタリングされたタスクを設定
-      if (filteredTasks) {
-        setTasks(filteredTasks);
-        // フィルタリング状態を永続化
-        localStorage.setItem('kanban_filtered_tasks', JSON.stringify(filteredTasks));
-        localStorage.setItem('kanban_filter_type', type);
-        localStorage.setItem('kanban_filter_value', value);
+      const { type, value } = event.detail;
+      console.log('KanbanBoard: フィルタ変更を検知:', type, value);
+      // グローバル選択を保存
+      if (type === 'workspace') {
+        localStorage.setItem('currentWorkspace', value);
+        localStorage.removeItem('currentProject');
+      } else if (type === 'project') {
+        localStorage.setItem('currentProject', value);
+        localStorage.removeItem('currentWorkspace');
+      }
+      // 最新タスクをローカルから取得して再フィルタ
+      const raw = localStorage.getItem(`tasks_${user?.id}`);
+      if (raw) {
+        const all = JSON.parse(raw);
+        const filtered = type === 'workspace'
+          ? all.filter((t: any) => t.workspace === value || (!t.workspace && value === '個人プロジェクト'))
+          : all.filter((t: any) => t.project === value || (!t.project && value === '個人プロジェクト'));
+        setTasks(filtered);
       }
     };
 
     window.addEventListener('filterChanged', handleFilterChange as EventListener);
     
-    // コンポーネントマウント時に保存されたフィルタリング状態を復元
-    const savedFilteredTasks = localStorage.getItem('kanban_filtered_tasks');
-    const savedFilterType = localStorage.getItem('kanban_filter_type');
-    const savedFilterValue = localStorage.getItem('kanban_filter_value');
-    
-    if (savedFilteredTasks && savedFilterType && savedFilterValue) {
-      try {
-        const parsedTasks = JSON.parse(savedFilteredTasks);
-        setTasks(parsedTasks);
-        console.log('KanbanBoard: 保存されたフィルタリング状態を復元:', savedFilterType, savedFilterValue);
-      } catch (error) {
-        console.error('KanbanBoard: フィルタリング状態の復元に失敗:', error);
+    // 初期表示時にグローバル選択があれば適用
+    const workspace = localStorage.getItem('currentWorkspace');
+    const project = localStorage.getItem('currentProject');
+    const raw = localStorage.getItem(`tasks_${user?.id}`);
+    if (raw) {
+      const all = JSON.parse(raw);
+      if (workspace) {
+        setTasks(all.filter((t: any) => t.workspace === workspace || (!t.workspace && workspace === '個人プロジェクト')));
+      } else if (project) {
+        setTasks(all.filter((t: any) => t.project === project || (!t.project && project === '個人プロジェクト')));
       }
     }
     

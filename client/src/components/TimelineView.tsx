@@ -70,8 +70,16 @@ const TimelineView: React.FC = () => {
 
     // Firebaseのリアルタイムリスナーを設定
     const unsubscribe = setupRealtimeListener(user.id, (firebaseTasks) => {
+      const workspace = localStorage.getItem('currentWorkspace');
+      const project = localStorage.getItem('currentProject');
+      let next = firebaseTasks;
+      if (workspace) {
+        next = next.filter((t: any) => t.workspace === workspace || (!t.workspace && workspace === '個人プロジェクト'));
+      } else if (project) {
+        next = next.filter((t: any) => t.project === project || (!t.project && project === '個人プロジェクト'));
+      }
       // 開始日と終了日を設定（デモ用）
-      const tasksWithDates = firebaseTasks.map((task: Task, index: number) => ({
+      const tasksWithDates = next.map((task: Task, index: number) => ({
         ...task,
         startDate: task.startDate || format(addDays(new Date(), index * 2), 'yyyy-MM-dd'),
         endDate: task.endDate || format(addDays(new Date(), index * 2 + 1), 'yyyy-MM-dd'),
@@ -85,39 +93,50 @@ const TimelineView: React.FC = () => {
   // フィルタリングイベントの監視
   useEffect(() => {
     const handleFilterChange = (event: CustomEvent) => {
-      const { type, value, filteredTasks } = event.detail;
-      console.log('TimelineView: フィルタ変更を検知:', type, value, filteredTasks);
-      
-      // フィルタリングされたタスクを設定
-      if (filteredTasks) {
-        const tasksWithDates = filteredTasks.map((task: Task, index: number) => ({
+      const { type, value } = event.detail;
+      console.log('TimelineView: フィルタ変更を検知:', type, value);
+      if (type === 'workspace') {
+        localStorage.setItem('currentWorkspace', value);
+        localStorage.removeItem('currentProject');
+      } else if (type === 'project') {
+        localStorage.setItem('currentProject', value);
+        localStorage.removeItem('currentWorkspace');
+      }
+      const raw = localStorage.getItem(`tasks_${user?.id}`);
+      if (raw) {
+        const all: Task[] = JSON.parse(raw);
+        const filtered = type === 'workspace'
+          ? all.filter((t: any) => t.workspace === value || (!t.workspace && value === '個人プロジェクト'))
+          : all.filter((t: any) => t.project === value || (!t.project && value === '個人プロジェクト'));
+        const tasksWithDates = filtered.map((task: Task, index: number) => ({
           ...task,
           startDate: task.startDate || format(addDays(new Date(), index * 2), 'yyyy-MM-dd'),
           endDate: task.endDate || format(addDays(new Date(), index * 2 + 1), 'yyyy-MM-dd'),
         }));
         setTasks(tasksWithDates);
-        // フィルタリング状態を永続化
-        localStorage.setItem('timeline_filtered_tasks', JSON.stringify(tasksWithDates));
-        localStorage.setItem('timeline_filter_type', type);
-        localStorage.setItem('timeline_filter_value', value);
       }
     };
 
     window.addEventListener('filterChanged', handleFilterChange as EventListener);
     
-    // コンポーネントマウント時に保存されたフィルタリング状態を復元
-    const savedFilteredTasks = localStorage.getItem('timeline_filtered_tasks');
-    const savedFilterType = localStorage.getItem('timeline_filter_type');
-    const savedFilterValue = localStorage.getItem('timeline_filter_value');
-    
-    if (savedFilteredTasks && savedFilterType && savedFilterValue) {
-      try {
-        const parsedTasks = JSON.parse(savedFilteredTasks);
-        setTasks(parsedTasks);
-        console.log('TimelineView: 保存されたフィルタリング状態を復元:', savedFilterType, savedFilterValue);
-      } catch (error) {
-        console.error('TimelineView: フィルタリング状態の復元に失敗:', error);
+    // 初期表示時にグローバル選択を適用
+    const workspace = localStorage.getItem('currentWorkspace');
+    const project = localStorage.getItem('currentProject');
+    const raw = localStorage.getItem(`tasks_${user?.id}`);
+    if (raw) {
+      const all: Task[] = JSON.parse(raw);
+      let filtered = all;
+      if (workspace) {
+        filtered = all.filter((t: any) => t.workspace === workspace || (!t.workspace && workspace === '個人プロジェクト'));
+      } else if (project) {
+        filtered = all.filter((t: any) => t.project === project || (!t.project && project === '個人プロジェクト'));
       }
+      const tasksWithDates = filtered.map((task: Task, index: number) => ({
+        ...task,
+        startDate: task.startDate || format(addDays(new Date(), index * 2), 'yyyy-MM-dd'),
+        endDate: task.endDate || format(addDays(new Date(), index * 2 + 1), 'yyyy-MM-dd'),
+      }));
+      setTasks(tasksWithDates);
     }
     
     return () => {
@@ -424,7 +443,7 @@ const TimelineView: React.FC = () => {
                         <Tooltip title="編集">
                           <IconButton
                             size="small"
-                            onClick={() => {
+                              onClick={() => {
                               setEditingTask(task);
                               setDialogOpen(true);
                             }}
@@ -436,10 +455,9 @@ const TimelineView: React.FC = () => {
                           <IconButton
                             size="small"
                             color="error"
-                            onClick={() => {
-                              const updatedTasks = tasks.filter(t => t.id !== task.id);
-                              localStorage.setItem('tasks', JSON.stringify(updatedTasks));
-                              setTasks(updatedTasks);
+                              onClick={async () => {
+                              if (!user?.id) return;
+                              await deleteTask(user.id, task.id);
                             }}
                           >
                             <Delete />

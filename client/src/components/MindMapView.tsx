@@ -129,7 +129,10 @@ const MindMapView: React.FC = () => {
   const [autoLayout, setAutoLayout] = useState(true);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [canvasRef] = useState(useRef<HTMLDivElement>(null));
+  // ノードドラッグ用の開始座標
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
+  // パン専用の開始座標（ノードドラッグと分離）
+  const [panStart, setPanStart] = useState<{ x: number; y: number } | null>(null);
   const [draggedNode, setDraggedNode] = useState<string | null>(null);
   const [connectionMode, setConnectionMode] = useState(false);
   const [connectionStart, setConnectionStart] = useState<string | null>(null);
@@ -477,16 +480,16 @@ const MindMapView: React.FC = () => {
     // パンモードがオンの場合のみ、または右クリックでパン
     if (isPanMode || event.button === 2) {
       event.preventDefault();
-      setDragStart({ x: event.clientX, y: event.clientY });
+      setPanStart({ x: event.clientX, y: event.clientY });
       document.body.style.cursor = 'grabbing';
     }
   };
 
   const handlePanMove = (event: MouseEvent) => {
-    if (!dragStart || (!isPanMode && event.button !== 2)) return;
+    if (!panStart || (!isPanMode && event.buttons !== 2)) return;
     
-    const deltaX = event.clientX - dragStart.x;
-    const deltaY = event.clientY - dragStart.y;
+    const deltaX = event.clientX - panStart.x;
+    const deltaY = event.clientY - panStart.y;
     
     setPan(prev => {
       const newPan = { x: prev.x + deltaX, y: prev.y + deltaY };
@@ -499,11 +502,11 @@ const MindMapView: React.FC = () => {
       return newPan;
     });
     
-    setDragStart({ x: event.clientX, y: event.clientY });
+    setPanStart({ x: event.clientX, y: event.clientY });
   };
 
   const handlePanEnd = () => {
-    setDragStart(null);
+    setPanStart(null);
     document.body.style.cursor = 'default';
   };
 
@@ -594,7 +597,7 @@ const MindMapView: React.FC = () => {
   }, [isDragging, handleDrag]);
 
   useEffect(() => {
-    if (isPanMode || dragStart) {
+    if (isPanMode || panStart) {
       document.addEventListener('mousemove', handlePanMove);
       document.addEventListener('mouseup', handlePanEnd);
       document.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -604,7 +607,7 @@ const MindMapView: React.FC = () => {
         document.removeEventListener('contextmenu', (e) => e.preventDefault());
       };
     }
-  }, [isPanMode, dragStart, handlePanMove, handlePanEnd]);
+  }, [isPanMode, panStart, handlePanMove, handlePanEnd]);
 
   const filteredNodes = showFavorites ? nodes.filter(node => node.isFavorite) : nodes;
 
@@ -777,7 +780,8 @@ const MindMapView: React.FC = () => {
             cursor: isPanMode ? 'grabbing' : 'default',
           },
         }}
-        onMouseDown={isPanMode ? handlePanStart : undefined}
+        // 右クリックでもパンできるよう常時バインド。パンはisPanModeまたは右クリック時のみ発火
+        onMouseDown={handlePanStart}
         onContextMenu={(e) => e.preventDefault()}
       >
         <Box
