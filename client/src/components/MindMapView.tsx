@@ -203,15 +203,17 @@ const MindMapView: React.FC = () => {
     }
   }, [nodes, user?.id]);
 
-  // マウス位置の追跡
+  // マウス位置の追跡（接続モード時のみ）
   useEffect(() => {
+    if (!connectionMode) return;
+
     const handleMouseMove = (event: MouseEvent) => {
       setMousePosition({ x: event.clientX, y: event.clientY });
     };
 
     document.addEventListener('mousemove', handleMouseMove);
     return () => document.removeEventListener('mousemove', handleMouseMove);
-  }, []);
+  }, [connectionMode]);
 
   const createDefaultMindMap = () => {
     const defaultNodes: MindMapNode[] = [
@@ -540,11 +542,13 @@ const MindMapView: React.FC = () => {
 
     setConnectionStart(null);
     setConnectionMode(false);
+    setMousePosition({ x: 0, y: 0 });
   };
 
   const cancelConnection = () => {
     setConnectionStart(null);
     setConnectionMode(false);
+    setMousePosition({ x: 0, y: 0 });
     toast.error('接続をキャンセルしました');
   };
 
@@ -827,22 +831,8 @@ const MindMapView: React.FC = () => {
               <line
                 x1={filteredNodes.find(n => n.id === connectionStart)?.position.x + 150 || 0}
                 y1={filteredNodes.find(n => n.id === connectionStart)?.position.y + 75 || 0}
-                x2={mousePosition.x}
-                y2={mousePosition.y}
-                stroke="#fbbf24"
-                strokeWidth={4}
-                opacity={0.8}
-                strokeDasharray="10,5"
-              />
-            )}
-            
-            {/* 接続中の線を描画 */}
-            {connectionStart && (
-              <line
-                x1={filteredNodes.find(n => n.id === connectionStart)?.position.x + 150 || 0}
-                y1={filteredNodes.find(n => n.id === connectionStart)?.position.y + 75 || 0}
-                x2={mousePosition.x}
-                y2={mousePosition.y}
+                x2={(mousePosition.x - pan.x) / zoom}
+                y2={(mousePosition.y - pan.y) / zoom}
                 stroke="#fbbf24"
                 strokeWidth={4}
                 opacity={0.8}
