@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore, onSnapshot, collection, doc, setDoc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
+import { getFirestore, onSnapshot, collection, doc, setDoc, updateDoc, deleteDoc, query, orderBy, getDoc, getDocs, where } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { secureLocalStorage, SecurityLogger } from './utils/security';
 
@@ -152,11 +152,25 @@ export const setupRealtimeListener = (userId: string, callback: (tasks: any[]) =
   }
 };
 
+const getSharedProjectId = (): string | null => {
+  try { return localStorage.getItem('currentProjectSharedId'); } catch { return null; }
+};
+
 // タスクを保存する関数
 export const saveTask = async (userId: string, task: any) => {
   try {
     console.log('タスクを保存中...', task);
-    
+
+    // 共有プロジェクト選択中なら共有側に保存
+    const sharedId = getSharedProjectId();
+    if (sharedId) {
+      await saveProjectTask(sharedId, task);
+      // ローカルバックアップ
+      try { const list = JSON.parse(localStorage.getItem(`tasks_${userId}`) || '[]'); list.push(task); localStorage.setItem(`tasks_${userId}`, JSON.stringify(list)); } catch {}
+      SecurityLogger.getInstance().log('info', '共有プロジェクトにタスク保存', { sharedId, taskId: task.id, userId });
+      return;
+    }
+
     // Firebaseが設定されていない場合はローカルストレージのみ使用
     if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
       console.log('Firebase設定がダミーのため、ローカルストレージに保存します');
@@ -261,7 +275,22 @@ export const saveTask = async (userId: string, task: any) => {
 export const updateTask = async (userId: string, taskId: string, updates: any) => {
   try {
     console.log('タスクを更新中...', taskId, updates);
-    
+
+    const sharedId = getSharedProjectId();
+    if (sharedId) {
+      await updateProjectTask(sharedId, taskId, updates);
+      try {
+        const saved = localStorage.getItem(`tasks_${userId}`);
+        if (saved) {
+          const tasks = JSON.parse(saved);
+          const updated = tasks.map((t: any) => t.id === taskId ? { ...t, ...updates } : t);
+          localStorage.setItem(`tasks_${userId}`, JSON.stringify(updated));
+        }
+      } catch {}
+      SecurityLogger.getInstance().log('info', '共有プロジェクトのタスク更新', { sharedId, taskId, userId });
+      return;
+    }
+
     // Firebaseが設定されていない場合はローカルストレージのみ使用
     if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
       console.log('Firebase設定がダミーのため、ローカルストレージを更新します');
@@ -308,7 +337,22 @@ export const updateTask = async (userId: string, taskId: string, updates: any) =
 export const deleteTask = async (userId: string, taskId: string) => {
   try {
     console.log('タスクを削除中...', taskId);
-    
+
+    const sharedId = getSharedProjectId();
+    if (sharedId) {
+      await deleteProjectTask(sharedId, taskId);
+      try {
+        const saved = localStorage.getItem(`tasks_${userId}`);
+        if (saved) {
+          const tasks = JSON.parse(saved);
+          const filtered = tasks.filter((t: any) => t.id !== taskId);
+          localStorage.setItem(`tasks_${userId}`, JSON.stringify(filtered));
+        }
+      } catch {}
+      SecurityLogger.getInstance().log('info', '共有プロジェクトのタスク削除', { sharedId, taskId, userId });
+      return;
+    }
+
     // Firebaseが設定されていない場合はローカルストレージのみ使用
     if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
       console.log('Firebase設定がダミーのため、ローカルストレージから削除します');
@@ -353,6 +397,244 @@ export const deleteTask = async (userId: string, taskId: string) => {
     }
     throw error;
   }
+};
+
+// 共有プロジェクト用 型定義
+type ProjectRole = 'owner' | 'editor' | 'viewer';
+interface Project {
+  id: string;
+  name: string;
+  ownerId: string;
+  members: { [userId: string]: ProjectRole };
+  memberIds: string[];
+  visibility: 'private' | 'team';
+  createdAt: string;
+}
+
+interface ProjectInvite {
+  token: string;
+  projectId: string;
+  role: ProjectRole;
+  createdBy: string;
+  createdAt: string;
+  expiresAt: string;
+}
+
+// 共有プロジェクト: ローカルストレージユーティリティ
+const readLocalJson = (key: string, fallback: any) => {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    const data = JSON.parse(raw);
+    return data ?? fallback;
+  } catch (e) {
+    console.warn('readLocalJson failed', key, e);
+    return fallback;
+  }
+};
+
+const writeLocalJson = (key: string, value: any) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+    console.warn('writeLocalJson failed', key, e);
+  }
+};
+
+// 共有プロジェクトAPI
+export const createProject = async (userId: string, name: string, visibility: 'private' | 'team' = 'team') => {
+  const project: Project = {
+    id: `proj_${Date.now()}`,
+    name,
+    ownerId: userId,
+    members: { [userId]: 'owner' },
+    memberIds: [userId],
+    visibility,
+    createdAt: new Date().toISOString(),
+  };
+
+  if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
+    const projects: Project[] = readLocalJson('projects', []);
+    projects.push(project);
+    writeLocalJson('projects', projects);
+    SecurityLogger.getInstance().log('info', 'プロジェクトを作成(Local)', { projectId: project.id, userId });
+    return project;
+  }
+
+  const ref = doc(collection(db, 'projects'));
+  await setDoc(ref, project);
+  SecurityLogger.getInstance().log('info', 'プロジェクトを作成', { projectId: ref.id, userId });
+  return { ...project, id: ref.id } as Project;
+};
+
+export const listMyProjects = async (userId: string): Promise<Project[]> => {
+  if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
+    const projects: Project[] = readLocalJson('projects', []);
+    return projects.filter(p => p.ownerId === userId || p.memberIds.includes(userId));
+  }
+
+  const ownedQ = query(collection(db, 'projects'), where('ownerId', '==', userId));
+  const memberQ = query(collection(db, 'projects'), where('memberIds', 'array-contains', userId));
+  const [ownedSnap, memberSnap] = await Promise.all([getDocs(ownedQ), getDocs(memberQ)]);
+  const list: Project[] = [];
+  ownedSnap.forEach(d => list.push({ id: d.id, ...(d.data() as any) }));
+  memberSnap.forEach(d => { if (!list.find(x => x.id === d.id)) list.push({ id: d.id, ...(d.data() as any) }); });
+  return list;
+};
+
+export const addProjectMember = async (projectId: string, targetUserId: string, role: ProjectRole = 'editor') => {
+  if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
+    const projects: Project[] = readLocalJson('projects', []);
+    const idx = projects.findIndex(p => p.id === projectId);
+    if (idx === -1) throw new Error('Project not found');
+    projects[idx].members[targetUserId] = role;
+    if (!projects[idx].memberIds.includes(targetUserId)) projects[idx].memberIds.push(targetUserId);
+    writeLocalJson('projects', projects);
+    SecurityLogger.getInstance().log('info', 'メンバー追加(Local)', { projectId, targetUserId, role });
+    return projects[idx];
+  }
+
+  const ref = doc(db, 'projects', projectId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) throw new Error('Project not found');
+  const data = snap.data() as Project;
+  const members = { ...(data.members || {}), [targetUserId]: role } as any;
+  const memberIds = Array.from(new Set([...(data.memberIds || []), targetUserId]));
+  await updateDoc(ref, { members, memberIds } as any);
+  SecurityLogger.getInstance().log('info', 'メンバー追加', { projectId, targetUserId, role });
+};
+
+export const generateInvite = async (projectId: string, createdBy: string, role: ProjectRole = 'viewer', expiresInHours = 168): Promise<ProjectInvite> => {
+  const token = `inv_${Math.random().toString(36).slice(2)}_${Date.now()}`;
+  const invite: ProjectInvite = {
+    token,
+    projectId,
+    role,
+    createdBy,
+    createdAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + expiresInHours * 3600 * 1000).toISOString(),
+  };
+
+  if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
+    const invites: Record<string, ProjectInvite> = readLocalJson('projectInvites', {});
+    invites[token] = invite;
+    writeLocalJson('projectInvites', invites);
+    SecurityLogger.getInstance().log('info', '招待リンク作成(Local)', { projectId, token });
+    return invite;
+  }
+
+  await setDoc(doc(db, 'projectInvites', token), invite as any);
+  SecurityLogger.getInstance().log('info', '招待リンク作成', { projectId, token });
+  return invite;
+};
+
+export const acceptInvite = async (token: string, userId: string) => {
+  if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
+    const invites: Record<string, ProjectInvite> = readLocalJson('projectInvites', {});
+    const invite = invites[token];
+    if (!invite) throw new Error('招待が見つかりません');
+    if (new Date(invite.expiresAt).getTime() < Date.now()) throw new Error('招待の有効期限が切れています');
+    await addProjectMember(invite.projectId, userId, invite.role);
+    delete invites[token];
+    writeLocalJson('projectInvites', invites);
+    SecurityLogger.getInstance().log('info', '招待受諾(Local)', { token, userId });
+    return invite.projectId;
+  }
+
+  const ref = doc(db, 'projectInvites', token);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) throw new Error('招待が見つかりません');
+  const invite = snap.data() as ProjectInvite;
+  if (new Date(invite.expiresAt).getTime() < Date.now()) throw new Error('招待の有効期限が切れています');
+  await addProjectMember(invite.projectId, userId, invite.role);
+  await deleteDoc(ref);
+  SecurityLogger.getInstance().log('info', '招待受諾', { token, userId });
+  return invite.projectId;
+};
+
+// 共有プロジェクトのタスク購読
+export const setupProjectTasksListener = (projectId: string, callback: (tasks: any[]) => void) => {
+  if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
+    const key = `project_tasks_${projectId}`;
+    const push = () => {
+      const tasks = readLocalJson(key, []);
+      callback(Array.isArray(tasks) ? tasks : []);
+    };
+    push();
+    const interval = setInterval(push, 1000);
+    return () => clearInterval(interval);
+  }
+
+  const tasksRef = collection(db, 'projects', projectId, 'tasks');
+  const q = query(tasksRef, orderBy('createdAt', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const tasks: any[] = [];
+    snapshot.forEach((d) => tasks.push({ id: d.id, ...d.data() }));
+    callback(tasks);
+  }, (error) => {
+    console.error('Project tasks listener error', error);
+    callback([]);
+  });
+};
+
+export const saveProjectTask = async (projectId: string, task: any) => {
+  if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
+    const key = `project_tasks_${projectId}`;
+    const tasks = readLocalJson(key, []);
+    const idx = tasks.findIndex((t: any) => t.id === task.id);
+    if (idx >= 0) tasks[idx] = { ...tasks[idx], ...task }; else tasks.push(task);
+    writeLocalJson(key, tasks);
+    SecurityLogger.getInstance().log('info', '共有タスク保存(Local)', { projectId, taskId: task.id });
+    return;
+  }
+
+  const ref = doc(collection(db, 'projects', projectId, 'tasks'));
+  await setDoc(doc(db, 'projects', projectId, 'tasks', task.id || ref.id), { ...task, id: task.id || ref.id });
+};
+
+export const updateProjectTask = async (projectId: string, taskId: string, updates: any) => {
+  if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
+    const key = `project_tasks_${projectId}`;
+    const tasks = readLocalJson(key, []);
+    const idx = tasks.findIndex((t: any) => t.id === taskId);
+    if (idx >= 0) {
+      tasks[idx] = { ...tasks[idx], ...updates };
+      writeLocalJson(key, tasks);
+    }
+    SecurityLogger.getInstance().log('info', '共有タスク更新(Local)', { projectId, taskId });
+    return;
+  }
+
+  const ref = doc(db, 'projects', projectId, 'tasks', taskId);
+  await updateDoc(ref, updates);
+};
+
+export const deleteProjectTask = async (projectId: string, taskId: string) => {
+  if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
+    const key = `project_tasks_${projectId}`;
+    const tasks = readLocalJson(key, []);
+    const filtered = tasks.filter((t: any) => t.id !== taskId);
+    writeLocalJson(key, filtered);
+    SecurityLogger.getInstance().log('info', '共有タスク削除(Local)', { projectId, taskId });
+    return;
+  }
+
+  const ref = doc(db, 'projects', projectId, 'tasks', taskId);
+  await deleteDoc(ref);
+};
+
+export const setupUnifiedTasksListener = (userId: string, callback: (tasks: any[]) => void) => {
+  const sharedId = localStorage.getItem('currentProjectSharedId');
+  if (sharedId) {
+    return setupProjectTasksListener(sharedId, (tasks) => {
+      try { localStorage.setItem(`tasks_${userId}`, JSON.stringify(tasks)); } catch {}
+      callback(tasks);
+    });
+  }
+  return setupRealtimeListener(userId, (tasks) => {
+    try { localStorage.setItem(`tasks_${userId}`, JSON.stringify(tasks)); } catch {}
+    callback(tasks);
+  });
 };
 
 export default app; 

@@ -329,6 +329,8 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
   };
 
   const handleProjectClick = (projectName: string) => {
+    // 共有モード解除
+    try { localStorage.removeItem('currentProjectSharedId'); } catch {}
     // プロジェクトをクリックした時の処理
     console.log(`プロジェクト "${projectName}" が選択されました`);
     
@@ -380,6 +382,8 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
   };
 
   const handleWorkspaceClick = (workspaceName: string) => {
+    // 共有モード解除
+    try { localStorage.removeItem('currentProjectSharedId'); } catch {}
     // ワークスペースをクリックした時の処理
     console.log(`ワークスペース "${workspaceName}" が選択されました`);
     

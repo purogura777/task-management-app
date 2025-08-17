@@ -60,7 +60,7 @@ import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { useAuth } from '../contexts/AuthContext';
-import { setupRealtimeListener, updateTask, deleteTask, saveTask } from '../firebase';
+import { setupUnifiedTasksListener, updateTask, deleteTask, saveTask } from '../firebase';
 import TaskForm from './TaskForm';
 import toast from 'react-hot-toast';
 
@@ -111,7 +111,7 @@ const KanbanBoard: React.FC = () => {
 
     setIsLoading(true);
     // Firebaseのリアルタイムリスナーを設定
-    const unsubscribe = setupRealtimeListener(user.id, (firebaseTasks) => {
+    const unsubscribe = setupUnifiedTasksListener(user.id, (firebaseTasks) => {
       // グローバルフィルタ（currentWorkspace / currentProject）を適用
       const workspace = localStorage.getItem('currentWorkspace');
       const project = localStorage.getItem('currentProject');

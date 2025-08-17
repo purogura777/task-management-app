@@ -25,6 +25,7 @@ import PomodoroTimer from './components/PomodoroTimer';
 import MindMapView from './components/MindMapView';
 import TaskFormPage from './components/TaskFormPage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { acceptInvite } from './firebase';
 import { ThemeProvider as CustomThemeProvider, useTheme } from './contexts/ThemeContext';
 
 const queryClient = new QueryClient({
@@ -53,6 +54,37 @@ function AppContent() {
   useEffect(() => {
     clearAllToasts();
   }, []);
+
+  // URLクエリから招待・共有プロジェクト選択を処理
+  useEffect(() => {
+    if (!user) return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const invite = params.get('invite');
+      const projectId = params.get('projectId');
+      if (invite) {
+        acceptInvite(invite, user.id)
+          .then((projId) => {
+            localStorage.setItem('currentProjectSharedId', projId);
+            toast.success('共有プロジェクトに参加しました');
+          })
+          .catch((e) => console.error(e))
+          .finally(() => {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('invite');
+            window.history.replaceState({}, '', url.toString());
+          });
+      } else if (projectId) {
+        localStorage.setItem('currentProjectSharedId', projectId);
+        toast.success('共有プロジェクトを選択しました');
+        const url = new URL(window.location.href);
+        url.searchParams.delete('projectId');
+        window.history.replaceState({}, '', url.toString());
+      }
+    } catch (e) {
+      console.error('URLパラメータ処理エラー', e);
+    }
+  }, [user?.id]);
 
   // ローディング中
   if (isLoading) {

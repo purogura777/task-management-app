@@ -72,7 +72,7 @@ import {
 } from '@mui/icons-material';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
-import { setupRealtimeListener, saveTask, updateTask, deleteTask } from '../firebase';
+import { setupUnifiedTasksListener, saveTask, updateTask, deleteTask } from '../firebase';
 import toast from 'react-hot-toast';
 
 interface MindMapNode {
@@ -146,7 +146,7 @@ const MindMapView: React.FC = () => {
     if (!user?.id) return;
 
     setIsLoading(true);
-    const unsubscribe = setupRealtimeListener(user.id, (firebaseTasks) => {
+    const unsubscribe = setupUnifiedTasksListener(user.id, (firebaseTasks) => {
       setTasks(firebaseTasks);
       
       // マインドマップノードが存在しない場合はデフォルトを作成

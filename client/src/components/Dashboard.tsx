@@ -51,7 +51,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { useAuth } from '../contexts/AuthContext';
-import { setupRealtimeListener, saveTask, updateTask, deleteTask } from '../firebase';
+import { setupUnifiedTasksListener, saveTask, updateTask, deleteTask } from '../firebase';
 import toast from 'react-hot-toast';
 import TaskForm from './TaskForm';
 
@@ -109,8 +109,8 @@ const Dashboard: React.FC = () => {
       console.log('Dashboard: 保存されたワークスペースを復元:', savedWorkspace);
     }
 
-    // Firebaseのリアルタイムリスナーを設定
-    const unsubscribe = setupRealtimeListener(user.id, (firebaseTasks) => {
+    // 統合タスクリスナーを設定（個人/共有を自動判定）
+    const unsubscribe = setupUnifiedTasksListener(user.id, (firebaseTasks) => {
       // グローバルフィルタ（currentWorkspace / currentProject）を適用
       const workspace = localStorage.getItem('currentWorkspace');
       const project = localStorage.getItem('currentProject');

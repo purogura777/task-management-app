@@ -4,7 +4,7 @@ import { Box, Typography, Button } from '@mui/material';
 import { ArrowBack } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import TaskForm from './TaskForm';
-import { setupRealtimeListener } from '../firebase';
+import { setupUnifiedTasksListener } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 
 interface Task {
@@ -32,7 +32,7 @@ const TaskFormPage: React.FC = () => {
 
     // 編集モードの場合、タスクデータを取得
     if (id && id !== 'new') {
-      const unsubscribe = setupRealtimeListener(user.id, (tasks) => {
+      const unsubscribe = setupUnifiedTasksListener(user.id, (tasks) => {
         const task = tasks.find(t => t.id === id);
         setEditingTask(task || null);
         setIsLoading(false);

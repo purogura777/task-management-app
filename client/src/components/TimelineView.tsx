@@ -42,7 +42,7 @@ import { motion } from 'framer-motion';
 import { format, addDays, differenceInDays, isAfter, isBefore, startOfDay } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { useAuth } from '../contexts/AuthContext';
-import { setupRealtimeListener, saveTask, updateTask, deleteTask } from '../firebase';
+import { setupUnifiedTasksListener, saveTask, updateTask, deleteTask } from '../firebase';
 
 interface Task {
   id: string;
@@ -69,7 +69,7 @@ const TimelineView: React.FC = () => {
     if (!user?.id) return;
 
     // Firebaseのリアルタイムリスナーを設定
-    const unsubscribe = setupRealtimeListener(user.id, (firebaseTasks) => {
+    const unsubscribe = setupUnifiedTasksListener(user.id, (firebaseTasks) => {
       const workspace = localStorage.getItem('currentWorkspace');
       const project = localStorage.getItem('currentProject');
       let next = firebaseTasks;

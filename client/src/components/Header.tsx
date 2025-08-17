@@ -33,7 +33,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion } from 'framer-motion';
-import { setupRealtimeListener } from '../firebase';
+import { setupUnifiedTasksListener } from '../firebase';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -183,7 +183,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   useEffect(() => {
     if (!user?.id) return;
 
-    const unsubscribe = setupRealtimeListener(user.id, (firebaseTasks) => {
+    const unsubscribe = setupUnifiedTasksListener(user.id, (firebaseTasks) => {
       setTasks(firebaseTasks);
       
       // 既存の通知を読み込み

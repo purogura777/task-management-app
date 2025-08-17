@@ -18,7 +18,7 @@ import {
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { setupRealtimeListener, updateTask, deleteTask } from '../firebase';
+import { setupUnifiedTasksListener, updateTask, deleteTask } from '../firebase';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 
@@ -42,7 +42,7 @@ const TaskBoard: React.FC = () => {
     if (!user?.id) return;
 
     // Firebaseのリアルタイムリスナーを設定
-    const unsubscribe = setupRealtimeListener(user.id, (firebaseTasks) => {
+    const unsubscribe = setupUnifiedTasksListener(user.id, (firebaseTasks) => {
       setTasks(firebaseTasks);
     });
 
