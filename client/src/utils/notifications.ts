@@ -62,6 +62,12 @@ export const notify = (event: NotificationEvent, payload?: Partial<NotifyPayload
 	// デフォルト: トースト
 	toast.success(title + (body ? `: ${body}` : ''));
 
+	// フローティング通知へイベント送信（PC限定ウィジェット用）
+	try {
+		const ev = new CustomEvent('appNotify', { detail: { title, body, event } });
+		window.dispatchEvent(ev);
+	} catch {}
+
 	// サウンド（push有効時に鳴らす）
 	if (profile?.notifications?.push) playSound();
 

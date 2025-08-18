@@ -24,6 +24,7 @@ import Profile from './components/Profile';
 import PomodoroTimer from './components/PomodoroTimer';
 import MindMapView from './components/MindMapView';
 import TaskFormPage from './components/TaskFormPage';
+import FloatingNotification from './components/FloatingNotification';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { checkDueSoonAndNotify } from './utils/notifications';
 import { acceptInvite } from './firebase';
@@ -180,6 +181,7 @@ function AppContent() {
           </Box>
         </Box>
       </Router>
+      <FloatingNotification />
       <Toaster
         position="top-right"
         toastOptions={{
