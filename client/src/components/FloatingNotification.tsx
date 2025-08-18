@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Box, IconButton, Badge } from '@mui/material';
+import { Box, IconButton, Badge, Popover, List, ListItem, ListItemText, Typography, Divider, Button } from '@mui/material';
 import { Notifications, Close } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 
 interface Position { x: number; y: number; }
+interface MiniNotice { id: string; title: string; body?: string; ts: number; }
 
 const STORAGE_KEY = 'floating_notify_pos';
+const STORAGE_LIST_KEY = 'floating_notify_list';
 
 const isPcEnvironment = () => {
 	if (typeof window === 'undefined') return false;
@@ -19,9 +21,17 @@ const clamp = (value: number, min: number, max: number) => Math.min(Math.max(val
 
 const FloatingNotification: React.FC = () => {
 	const [visible, setVisible] = useState(false);
-	const [count, setCount] = useState(0);
+	const [unreadCount, setUnreadCount] = useState(0);
 	const [title, setTitle] = useState<string>('');
 	const [body, setBody] = useState<string>('');
+	const [openList, setOpenList] = useState(false);
+	const [notices, setNotices] = useState<MiniNotice[]>(() => {
+		try {
+			const raw = localStorage.getItem(STORAGE_LIST_KEY);
+			if (raw) return JSON.parse(raw);
+		} catch {}
+		return [];
+	});
 	const [pos, setPos] = useState<Position>(() => {
 		try {
 			const raw = localStorage.getItem(STORAGE_KEY);
@@ -32,11 +42,16 @@ const FloatingNotification: React.FC = () => {
 	const draggingRef = useRef(false);
 	const dragStartRef = useRef<Position>({ x: 0, y: 0 });
 	const startPosRef = useRef<Position>(pos);
+	const anchorRef = useRef<HTMLDivElement | null>(null);
 
 	useEffect(() => {
 		startPosRef.current = pos;
 		try { localStorage.setItem(STORAGE_KEY, JSON.stringify(pos)); } catch {}
 	}, [pos]);
+
+	useEffect(() => {
+		try { localStorage.setItem(STORAGE_LIST_KEY, JSON.stringify(notices.slice(-100))); } catch {}
+	}, [notices]);
 
 	useEffect(() => {
 		if (!isPcEnvironment()) return;
@@ -45,8 +60,13 @@ const FloatingNotification: React.FC = () => {
 			const detail = ce.detail || {};
 			setTitle(detail.title || '通知');
 			setBody(detail.body || '');
-			setCount(prev => prev + 1);
+			setUnreadCount(prev => prev + 1);
 			setVisible(true);
+			setNotices(prev => {
+				const next: MiniNotice = { id: String(Date.now()), title: detail.title || '通知', body: detail.body, ts: Date.now() };
+				const merged = [...prev, next];
+				return merged.slice(-50);
+			});
 		};
 		window.addEventListener('appNotify', handler as EventListener);
 		return () => window.removeEventListener('appNotify', handler as EventListener);
@@ -102,7 +122,9 @@ const FloatingNotification: React.FC = () => {
 					transition={{ type: 'spring', stiffness: 260, damping: 18 }}
 				>
 					<Box
+						ref={anchorRef}
 						onMouseDown={onMouseDown}
+						onClick={() => { setOpenList(prev => !prev); setUnreadCount(0); }}
 						sx={{
 							width: 56,
 							height: 56,
@@ -122,12 +144,12 @@ const FloatingNotification: React.FC = () => {
 							},
 						}}
 					>
-						<Badge badgeContent={count} color="error" overlap="circular">
+						<Badge badgeContent={unreadCount} color="error" overlap="circular">
 							<Notifications sx={{ color: 'white' }} />
 						</Badge>
 						<IconButton
 							size="small"
-							onClick={(e) => { e.stopPropagation(); setVisible(false); setCount(0); }}
+							onClick={(e) => { e.stopPropagation(); setVisible(false); setUnreadCount(0); setOpenList(false); }}
 							sx={{
 								position: 'absolute',
 								top: -8,
@@ -143,6 +165,46 @@ const FloatingNotification: React.FC = () => {
 					</Box>
 				</motion.div>
 			)}
+			<Popover
+				open={openList}
+				anchorEl={anchorRef.current}
+				onClose={() => setOpenList(false)}
+				anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+				transformOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+				PaperProps={{ sx: { width: 280, maxHeight: 360, borderRadius: 2, p: 1 } }}
+			>
+				<Box sx={{ px: 1, py: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+					<Typography variant="subtitle2" sx={{ fontWeight: 700 }}>通知</Typography>
+					<Button size="small" onClick={() => { setNotices([]); setUnreadCount(0); }}>クリア</Button>
+				</Box>
+				<Divider />
+				<List dense sx={{ py: 0 }}>
+					{notices.length === 0 && (
+						<ListItem>
+							<ListItemText primary="通知はありません" />
+						</ListItem>
+					)}
+					{notices.slice().reverse().map(n => (
+						<ListItem key={n.id} sx={{ alignItems: 'flex-start' }}>
+							<ListItemText
+								primary={
+									<Typography variant="body2" sx={{ fontWeight: 600 }}>
+										{n.title}
+									</Typography>
+								}
+								secondary={
+									<>
+										{n.body && <Typography variant="caption" color="text.secondary">{n.body}</Typography>}
+										<Typography variant="caption" color="text.disabled" sx={{ display: 'block' }}>
+											{new Date(n.ts).toLocaleTimeString()}
+										</Typography>
+									</>
+								}
+							/>
+						</ListItem>
+					))}
+				</List>
+			</Popover>
 		</Box>
 	);
 };
