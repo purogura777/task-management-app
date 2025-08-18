@@ -25,6 +25,7 @@ import PomodoroTimer from './components/PomodoroTimer';
 import MindMapView from './components/MindMapView';
 import TaskFormPage from './components/TaskFormPage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { checkDueSoonAndNotify } from './utils/notifications';
 import { acceptInvite } from './firebase';
 import { ThemeProvider as CustomThemeProvider, useTheme } from './contexts/ThemeContext';
 
@@ -54,6 +55,15 @@ function AppContent() {
   useEffect(() => {
     clearAllToasts();
   }, []);
+
+  // 期限リマインダー（60秒ごと）
+  useEffect(() => {
+    if (!user) return;
+    const id = setInterval(() => {
+      checkDueSoonAndNotify();
+    }, 60000);
+    return () => clearInterval(id);
+  }, [user?.id]);
 
   // URLクエリから招待・共有プロジェクト選択を処理
   useEffect(() => {

@@ -38,6 +38,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import toast from 'react-hot-toast';
+import { requestPushPermission } from '../utils/notifications';
 
 interface UserProfile {
   name: string;
@@ -50,9 +51,7 @@ interface UserProfile {
   linkedin: string;
   twitter: string;
   notifications: {
-    email: boolean;
     push: boolean;
-    sms: boolean;
   };
   preferences: {
     language: string;
@@ -77,9 +76,7 @@ const Profile: React.FC = () => {
     linkedin: '',
     twitter: '',
     notifications: {
-      email: true,
       push: true,
-      sms: false,
     },
     preferences: {
       language: 'ja',
@@ -97,6 +94,9 @@ const Profile: React.FC = () => {
   const handleSave = () => {
     // プロフィール保存処理
     localStorage.setItem('userProfile', JSON.stringify(profile));
+    if (profile.notifications.push) {
+      requestPushPermission();
+    }
     setIsEditing(false);
     toast.success('プロフィールを更新しました');
   };
@@ -307,18 +307,6 @@ const Profile: React.FC = () => {
               <FormControlLabel
                 control={
                   <Switch
-                    checked={profile.notifications.email}
-                    onChange={(e) => setProfile({
-                      ...profile,
-                      notifications: { ...profile.notifications, email: e.target.checked }
-                    })}
-                  />
-                }
-                label="メール通知"
-              />
-              <FormControlLabel
-                control={
-                  <Switch
                     checked={profile.notifications.push}
                     onChange={(e) => setProfile({
                       ...profile,
@@ -327,18 +315,6 @@ const Profile: React.FC = () => {
                   />
                 }
                 label="プッシュ通知"
-              />
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={profile.notifications.sms}
-                    onChange={(e) => setProfile({
-                      ...profile,
-                      notifications: { ...profile.notifications, sms: e.target.checked }
-                    })}
-                  />
-                }
-                label="SMS通知"
               />
             </Box>
 

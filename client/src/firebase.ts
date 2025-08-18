@@ -3,6 +3,7 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore, onSnapshot, collection, doc, setDoc, updateDoc, deleteDoc, query, orderBy, getDoc, getDocs, where } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { secureLocalStorage, SecurityLogger } from './utils/security';
+import { notify } from './utils/notifications';
 
 // Firebase設定 - 実際のプロジェクトの設定に置き換えてください
 // Firebase Console (https://console.firebase.google.com/) でプロジェクトを作成し、
@@ -207,6 +208,7 @@ export const saveTask = async (userId: string, task: any) => {
       
       // ローカルストレージに保存
       localStorage.setItem(`tasks_${userId}`, JSON.stringify(tasks));
+      notify('task_created', { Title: 'タスクを作成', Body: task.title, TaskId: task.id });
       
       // セキュリティログ
       const securityLogger = SecurityLogger.getInstance();
@@ -242,6 +244,7 @@ export const saveTask = async (userId: string, task: any) => {
       tasks.push(task);
     }
     localStorage.setItem(`tasks_${userId}`, JSON.stringify(tasks));
+    notify('task_created', { Title: 'タスクを作成', Body: task.title, TaskId: task.id });
   } catch (error) {
     console.error('タスクの保存に失敗しました:', error);
     // Firebaseが失敗した場合はローカルストレージに保存
@@ -301,6 +304,7 @@ export const updateTask = async (userId: string, taskId: string, updates: any) =
           task.id === taskId ? { ...task, ...updates } : task
         );
         localStorage.setItem(`tasks_${userId}`, JSON.stringify(updatedTasks));
+        notify('task_updated', { Title: 'タスクを更新', Body: updates?.title || '', TaskId: taskId });
       }
       return;
     }
@@ -317,6 +321,7 @@ export const updateTask = async (userId: string, taskId: string, updates: any) =
         task.id === taskId ? { ...task, ...updates } : task
       );
       localStorage.setItem(`tasks_${userId}`, JSON.stringify(updatedTasks));
+      notify('task_updated', { Title: 'タスクを更新', Body: updates?.title || '', TaskId: taskId });
     }
   } catch (error) {
     console.error('タスクの更新に失敗しました:', error);
@@ -328,6 +333,7 @@ export const updateTask = async (userId: string, taskId: string, updates: any) =
         task.id === taskId ? { ...task, ...updates } : task
       );
       localStorage.setItem(`tasks_${userId}`, JSON.stringify(updatedTasks));
+      notify('task_updated', { Title: 'タスクを更新', Body: updates?.title || '', TaskId: taskId });
     }
     throw error;
   }
@@ -362,6 +368,7 @@ export const deleteTask = async (userId: string, taskId: string) => {
         const filteredTasks = tasks.filter((task: any) => task.id !== taskId);
         localStorage.setItem(`tasks_${userId}`, JSON.stringify(filteredTasks));
         console.log('ローカルストレージからタスクを削除しました');
+        notify('task_deleted', { Title: 'タスクを削除', Body: taskId, TaskId: taskId });
         
         // 削除後に即座にコールバックを呼び出してリアルタイム更新を実行
         setTimeout(() => {
@@ -385,6 +392,7 @@ export const deleteTask = async (userId: string, taskId: string) => {
       const tasks = JSON.parse(savedTasks);
       const filteredTasks = tasks.filter((task: any) => task.id !== taskId);
       localStorage.setItem(`tasks_${userId}`, JSON.stringify(filteredTasks));
+      notify('task_deleted', { Title: 'タスクを削除', Body: taskId, TaskId: taskId });
     }
   } catch (error) {
     console.error('タスクの削除に失敗しました:', error);
@@ -394,6 +402,7 @@ export const deleteTask = async (userId: string, taskId: string) => {
       const tasks = JSON.parse(savedTasks);
       const filteredTasks = tasks.filter((task: any) => task.id !== taskId);
       localStorage.setItem(`tasks_${userId}`, JSON.stringify(filteredTasks));
+      notify('task_deleted', { Title: 'タスクを削除', Body: taskId, TaskId: taskId });
     }
     throw error;
   }
@@ -584,6 +593,7 @@ export const saveProjectTask = async (projectId: string, task: any) => {
     const idx = tasks.findIndex((t: any) => t.id === task.id);
     if (idx >= 0) tasks[idx] = { ...tasks[idx], ...task }; else tasks.push(task);
     writeLocalJson(key, tasks);
+    notify('task_created', { Title: 'タスクを作成(共有)', Body: task.title, TaskId: task.id, ProjectId: projectId });
     SecurityLogger.getInstance().log('info', '共有タスク保存(Local)', { projectId, taskId: task.id });
     return;
   }
@@ -600,6 +610,7 @@ export const updateProjectTask = async (projectId: string, taskId: string, updat
     if (idx >= 0) {
       tasks[idx] = { ...tasks[idx], ...updates };
       writeLocalJson(key, tasks);
+      notify('task_updated', { Title: 'タスクを更新(共有)', Body: updates?.title || '', TaskId: taskId, ProjectId: projectId });
     }
     SecurityLogger.getInstance().log('info', '共有タスク更新(Local)', { projectId, taskId });
     return;
@@ -615,12 +626,14 @@ export const deleteProjectTask = async (projectId: string, taskId: string) => {
     const tasks = readLocalJson(key, []);
     const filtered = tasks.filter((t: any) => t.id !== taskId);
     writeLocalJson(key, filtered);
+    notify('task_deleted', { Title: 'タスクを削除(共有)', Body: taskId, TaskId: taskId, ProjectId: projectId });
     SecurityLogger.getInstance().log('info', '共有タスク削除(Local)', { projectId, taskId });
     return;
   }
 
   const ref = doc(db, 'projects', projectId, 'tasks', taskId);
   await deleteDoc(ref);
+  notify('task_deleted', { Title: 'タスクを削除(共有)', Body: taskId, TaskId: taskId, ProjectId: projectId });
 };
 
 export const setupUnifiedTasksListener = (userId: string, callback: (tasks: any[]) => void) => {
