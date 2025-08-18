@@ -28,6 +28,7 @@ import FloatingNotification from './components/FloatingNotification';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { checkDueSoonAndNotify } from './utils/notifications';
 import { connectDesktopBridge } from './utils/desktopBridge';
+import { connectLocalDesktopBridge } from './utils/desktopBridge';
 import { acceptInvite } from './firebase';
 import { ThemeProvider as CustomThemeProvider, useTheme } from './contexts/ThemeContext';
 
@@ -70,6 +71,7 @@ function AppContent() {
       const wsUrl = localStorage.getItem('desktop_ws_url') || '';
       const token = localStorage.getItem('desktop_pair_token') || '';
       if (wsUrl && token) connectDesktopBridge(wsUrl, token);
+      connectLocalDesktopBridge();
     } catch {}
   }, [user?.id]);
 

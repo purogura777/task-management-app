@@ -433,6 +433,14 @@ const Settings: React.FC = () => {
               onChange={(e) => localStorage.setItem('desktop_pair_token', e.target.value)}
               sx={{ mb: 2 }}
             />
+            <TextField
+              fullWidth
+              label="デスクトップアプリ ダウンロードURL"
+              placeholder="https://github.com/OWNER/REPO/releases/latest"
+              value={localStorage.getItem('desktop_download_url') || ''}
+              onChange={(e) => localStorage.setItem('desktop_download_url', e.target.value)}
+              sx={{ mb: 2 }}
+            />
             <Box sx={{ display: 'flex', gap: 1 }}>
               <Button
                 variant="contained"
@@ -452,6 +460,13 @@ const Settings: React.FC = () => {
                   toast.success('Webフローティングは無効です。OS常駐をご利用ください');
                 }}
               >Webフローティング無効化</Button>
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  const url = localStorage.getItem('desktop_download_url') || 'https://github.com/OWNER/REPO/releases/latest';
+                  window.open(url, '_blank');
+                }}
+              >ダウンロード</Button>
             </Box>
           </Paper>
         </Grid>

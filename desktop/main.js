@@ -1,12 +1,17 @@
 import { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, Notification } from 'electron';
 import path from 'path';
 import Store from 'electron-store';
+import { WebSocketServer } from 'ws';
 
 const store = new Store();
 let tray = null;
 let floatWin = null;
 let webSocket = null;
 let schemeReady = false;
+let wss = null;
+let localPort = 17345;
+let authWin = null;
+let cloudWin = null;
 
 const isWindows = process.platform === 'win32';
 
@@ -58,6 +63,9 @@ function createTray() {
   const image = nativeImage.createFromPath(iconPath);
   tray = new Tray(image);
   const contextMenu = Menu.buildFromTemplate([
+    { label: 'ログイン', click: () => openAuthWindow() },
+    { label: 'ログアウト', click: () => doLogout() },
+    { type: 'separator' },
     { label: 'バッジをクリア', click: () => floatWin && floatWin.webContents.send('badge:clear') },
     { type: 'separator' },
     { label: '終了', click: () => app.quit() },
@@ -67,10 +75,42 @@ function createTray() {
   tray.on('click', () => { if (!floatWin) createFloatingWindow(); else floatWin.show(); });
 }
 
+function startLocalBridge() {
+  const tryStart = (port, attempt = 0) => {
+    try {
+      const server = new WebSocketServer({ host: '127.0.0.1', port });
+      server.on('connection', (ws) => {
+        ws.on('message', (raw) => {
+          try {
+            const data = JSON.parse(raw.toString());
+            if (data.type === 'notify' && floatWin) {
+              floatWin.webContents.send('notify', { title: data.title, body: data.body });
+            }
+          } catch {}
+        });
+      });
+      wss = server;
+      localPort = port;
+      store.set('local_port', port);
+      console.log('Local WS bridge started on', port);
+    } catch (e) {
+      if (attempt < 10) return tryStart(port + 1, attempt + 1);
+      console.warn('Failed to start local WS bridge', e);
+    }
+  };
+  const saved = Number(store.get('local_port') || 17345);
+  tryStart(saved);
+}
+
 function connectRealtime() {
   const base = store.get('ws_url') || 'wss://example.invalid/ws';
   const token = store.get('pair_token');
-  const url = token ? `${base}${base.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}` : base;
+  const uid = store.get('pair_uid');
+  let url = base;
+  const params = new URLSearchParams();
+  if (token) params.set('token', String(token));
+  if (uid) params.set('uid', String(uid));
+  if ([...params.keys()].length > 0) url = `${base}${base.includes('?') ? '&' : '?'}${params.toString()}`;
   try {
     webSocket = new (require('ws'))(url);
     webSocket.on('open', () => console.log('WS connected'));
@@ -79,6 +119,14 @@ function connectRealtime() {
         const data = JSON.parse(msg.toString());
         if (data.type === 'notify' && floatWin) {
           floatWin.webContents.send('notify', { title: data.title, body: data.body });
+          // forward to local web clients
+          try {
+            if (wss) {
+              for (const client of wss.clients) {
+                try { client.send(JSON.stringify({ type: 'notify', title: data.title, body: data.body })); } catch {}
+              }
+            }
+          } catch {}
         }
       } catch {}
     });
@@ -102,7 +150,12 @@ app.whenReady().then(() => {
 
   createFloatingWindow();
   createTray();
+  startLocalBridge();
   connectRealtime();
+  // 既存ログインがあればクラウド購読を開始
+  const uid = store.get('pair_uid');
+  const cfg = store.get('firebase_cfg');
+  if (uid && cfg) startCloudListener(uid, cfg);
 });
 
 ipcMain.on('float:pos', (_, pos) => {
@@ -148,9 +201,114 @@ function handleDeepLink(urlStr) {
         store.set('pair_token', token);
       }
       if (floatWin) floatWin.webContents.send('notify', { title: 'デスクトップ連携', body: '設定を更新しました' });
+    } else if (u.host === 'pair') {
+      const uid = u.searchParams.get('uid');
+      if (uid) {
+        store.set('pair_uid', uid);
+        if (webSocket && webSocket.close) try { webSocket.close(); } catch {}
+        setTimeout(connectRealtime, 200);
+        if (floatWin) floatWin.webContents.send('notify', { title: 'デスクトップ連携', body: 'ペアリングしました' });
+      }
     }
   } catch (e) {
     console.warn('handleDeepLink error', e);
   }
 }
+
+function openAuthWindow() {
+  if (authWin) { authWin.focus(); return; }
+  authWin = new BrowserWindow({
+    width: 420,
+    height: 560,
+    resizable: false,
+    webPreferences: { nodeIntegration: true, contextIsolation: false },
+  });
+  const savedCfg = store.get('firebase_cfg') || {};
+  authWin.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(`
+    <html><head><meta charset='utf-8'><title>ログイン</title>
+    <style>body{font-family:sans-serif;margin:16px}input,button{width:100%;margin:6px 0;padding:8px}small{color:#666}</style>
+    </head><body>
+    <h3>Firebase 設定</h3>
+    <input id='apiKey' placeholder='apiKey' value='${savedCfg.apiKey || ''}' />
+    <input id='authDomain' placeholder='authDomain' value='${savedCfg.authDomain || ''}' />
+    <input id='projectId' placeholder='projectId' value='${savedCfg.projectId || ''}' />
+    <h3>ログイン</h3>
+    <input id='email' placeholder='メールアドレス' />
+    <input id='password' placeholder='パスワード' type='password' />
+    <button id='loginBtn'>保存してログイン</button>
+    <small>Googleログイン等は後続対応可能です。</small>
+    <script>
+      const { ipcRenderer } = require('electron');
+      document.getElementById('loginBtn').onclick = async () => {
+        const cfg = {
+          apiKey: document.getElementById('apiKey').value.trim(),
+          authDomain: document.getElementById('authDomain').value.trim(),
+          projectId: document.getElementById('projectId').value.trim(),
+        };
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value.trim();
+        if (!cfg.apiKey || !cfg.authDomain || !cfg.projectId || !email || !password) {
+          alert('すべて入力してください'); return;
+        }
+        const appUrl = 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js';
+        const authUrl = 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js';
+        const firestoreUrl = 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js';
+        await new Promise(r=>{ const s=document.createElement('script'); s.src=appUrl; s.onload=r; document.body.appendChild(s); });
+        await new Promise(r=>{ const s=document.createElement('script'); s.src=authUrl; s.onload=r; document.body.appendChild(s); });
+        await new Promise(r=>{ const s=document.createElement('script'); s.src=firestoreUrl; s.onload=r; document.body.appendChild(s); });
+        const app = firebase.initializeApp(cfg);
+        const auth = firebase.auth();
+        try {
+          const res = await auth.signInWithEmailAndPassword(email, password);
+          const uid = res.user.uid;
+          ipcRenderer.send('auth:login', { uid, cfg });
+        } catch(e) { alert('ログイン失敗: '+e.message); }
+      };
+    </script>
+    </body></html>
+  `));
+  authWin.on('closed', () => { authWin = null; });
+}
+
+function startCloudListener(uid, cfg) {
+  if (cloudWin) { try { cloudWin.close(); } catch {} cloudWin = null; }
+  cloudWin = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: true, contextIsolation: false } });
+  cloudWin.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(`
+    <html><body><script>
+      const { ipcRenderer } = require('electron');
+      const cfg = ${JSON.stringify(cfg)};
+      const uid = ${JSON.stringify(uid)};
+      const load = (u)=> new Promise(r=>{ const s=document.createElement('script'); s.src=u; s.onload=r; document.body.appendChild(s); });
+      (async () => {
+        await load('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
+        await load('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js');
+        firebase.initializeApp(cfg);
+        const db = firebase.firestore();
+        db.collection('users').doc(uid).collection('notifications').orderBy('createdAt','desc').limit(20)
+          .onSnapshot(snap => {
+            snap.docChanges().forEach(ch => {
+              if (ch.type === 'added') {
+                const d = ch.doc.data();
+                ipcRenderer.send('cloud:notify', { title: d.title || '通知', body: d.body || '' });
+              }
+            });
+          });
+      })();
+    </script></body></html>
+  `));
+}
+
+function doLogout() {
+  store.delete('pair_uid');
+  if (cloudWin) { try { cloudWin.close(); } catch {} cloudWin = null; }
+  if (floatWin) floatWin.webContents.send('notify', { title: 'ログアウト', body: 'デスクトップ連携を停止しました' });
+}
+
+ipcMain.on('auth:login', (_e, { uid, cfg }) => {
+  store.set('pair_uid', uid);
+  store.set('firebase_cfg', cfg);
+  if (authWin) { try { authWin.close(); } catch {} authWin = null; }
+  startCloudListener(uid, cfg);
+  if (floatWin) floatWin.webContents.send('notify', { title: 'ログイン成功', body: 'デスクトップ連携を開始します' });
+});
 

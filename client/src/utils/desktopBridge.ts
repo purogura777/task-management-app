@@ -35,3 +35,21 @@ export const desktopBridgeSendNotify = (title: string, body?: string) => {
   } catch {}
 };
 
+// ローカルブリッジ（Electronが開く127.0.0.1:port）へもフォールバック接続
+let localSock: WebSocket | null = null;
+export const connectLocalDesktopBridge = () => {
+  try {
+    const port = Number(localStorage.getItem('desktop_local_port') || '17345');
+    const ws = new WebSocket(`ws://127.0.0.1:${port}`);
+    localSock = ws;
+    ws.onopen = () => {};
+    ws.onclose = () => {
+      setTimeout(connectLocalDesktopBridge, 3000);
+    };
+  } catch {}
+};
+
+export const localDesktopNotify = (title: string, body?: string) => {
+  try { localSock?.send(JSON.stringify({ type: 'notify', title, body })); } catch {}
+};
+
