@@ -43,6 +43,7 @@ function AppContent() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { isDarkMode } = useTheme();
   const { user, isLoading } = useAuth();
+  const [showWebFloating, setShowWebFloating] = useState(false);
 
   // デバッグ用のログ
   console.log('AppContent rendered', { sidebarOpen, isDarkMode, user, isLoading });
@@ -55,6 +56,10 @@ function AppContent() {
   // コンポーネントがマウントされたときに通知をクリア
   useEffect(() => {
     clearAllToasts();
+  }, []);
+
+  useEffect(() => {
+    try { setShowWebFloating(localStorage.getItem('enableWebFloating') === 'true'); } catch {}
   }, []);
 
   // 期限リマインダー（60秒ごと）
@@ -181,7 +186,7 @@ function AppContent() {
           </Box>
         </Box>
       </Router>
-      <FloatingNotification />
+      {showWebFloating && <FloatingNotification />}
       <Toaster
         position="top-right"
         toastOptions={{
