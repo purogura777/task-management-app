@@ -47,9 +47,7 @@ import toast from 'react-hot-toast';
 
 interface Settings {
   notifications: {
-    email: boolean;
     push: boolean;
-    sms: boolean;
     taskReminders: boolean;
     deadlineAlerts: boolean;
     teamUpdates: boolean;
@@ -81,9 +79,7 @@ const Settings: React.FC = () => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [settings, setSettings] = useState<Settings>({
     notifications: {
-      email: true,
       push: true,
-      sms: false,
       taskReminders: true,
       deadlineAlerts: true,
       teamUpdates: true,
@@ -167,25 +163,7 @@ const Settings: React.FC = () => {
             </Box>
 
             <List>
-              <ListItem>
-                <ListItemIcon>
-                  <Info color="primary" />
-                </ListItemIcon>
-                <ListItemText
-                  primary="メール通知"
-                  secondary="重要な更新をメールで受け取る"
-                />
-                <ListItemSecondaryAction>
-                  <Switch
-                    checked={settings.notifications.email}
-                    onChange={(e) => setSettings({
-                      ...settings,
-                      notifications: { ...settings.notifications, email: e.target.checked }
-                    })}
-                    disabled={!isEditing}
-                  />
-                </ListItemSecondaryAction>
-              </ListItem>
+              
 
               <ListItem>
                 <ListItemIcon>
