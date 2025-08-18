@@ -68,7 +68,9 @@ function createTray() {
 }
 
 function connectRealtime() {
-  const url = store.get('ws_url') || 'wss://example.invalid/ws';
+  const base = store.get('ws_url') || 'wss://example.invalid/ws';
+  const token = store.get('pair_token');
+  const url = token ? `${base}${base.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}` : base;
   try {
     webSocket = new (require('ws'))(url);
     webSocket.on('open', () => console.log('WS connected'));

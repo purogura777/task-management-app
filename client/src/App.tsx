@@ -27,6 +27,7 @@ import TaskFormPage from './components/TaskFormPage';
 import FloatingNotification from './components/FloatingNotification';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { checkDueSoonAndNotify } from './utils/notifications';
+import { connectDesktopBridge } from './utils/desktopBridge';
 import { acceptInvite } from './firebase';
 import { ThemeProvider as CustomThemeProvider, useTheme } from './contexts/ThemeContext';
 
@@ -61,6 +62,16 @@ function AppContent() {
   useEffect(() => {
     try { setShowWebFloating(localStorage.getItem('enableWebFloating') === 'true'); } catch {}
   }, []);
+
+  // デスクトップブリッジへ接続（ユーザー毎のWS URL/トークンを使用）
+  useEffect(() => {
+    if (!user) return;
+    try {
+      const wsUrl = localStorage.getItem('desktop_ws_url') || '';
+      const token = localStorage.getItem('desktop_pair_token') || '';
+      if (wsUrl && token) connectDesktopBridge(wsUrl, token);
+    } catch {}
+  }, [user?.id]);
 
   // 期限リマインダー（60秒ごと）
   useEffect(() => {
