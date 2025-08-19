@@ -9,12 +9,12 @@ import { notify } from './utils/notifications';
 // Firebase Console (https://console.firebase.google.com/) でプロジェクトを作成し、
 // プロジェクト設定 > 全般 > マイアプリ > Webアプリを追加して取得した設定を以下に貼り付けてください
 const firebaseConfig = {
-  apiKey: "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-  authDomain: "task-management-app-xxxxx.firebaseapp.com",
-  projectId: "task-management-app-xxxxx",
-  storageBucket: "task-management-app-xxxxx.appspot.com",
-  messagingSenderId: "123456789012",
-  appId: "1:123456789012:web:abcdefghijklmnop"
+  apiKey: import.meta.env?.VITE_FIREBASE_API_KEY || "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+  authDomain: import.meta.env?.VITE_FIREBASE_AUTH_DOMAIN || "task-management-app-xxxxx.firebaseapp.com",
+  projectId: import.meta.env?.VITE_FIREBASE_PROJECT_ID || "task-management-app-xxxxx",
+  storageBucket: import.meta.env?.VITE_FIREBASE_STORAGE_BUCKET || "task-management-app-xxxxx.appspot.com",
+  messagingSenderId: import.meta.env?.VITE_FIREBASE_MESSAGING_SENDER_ID || "123456789012",
+  appId: import.meta.env?.VITE_FIREBASE_APP_ID || "1:123456789012:web:abcdefghijklmnop"
 };
 
 // Firebase初期化

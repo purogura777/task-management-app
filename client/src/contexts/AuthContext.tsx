@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { auth } from '../firebase';
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 
 interface User {
   id: string;
@@ -33,36 +35,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // ローカルストレージからユーザー情報を復元
-    const savedUser = localStorage.getItem('taskAppUser');
-    if (savedUser) {
-      try {
-        const userData = JSON.parse(savedUser);
-        setUser(userData);
-      } catch (error) {
-        console.error('ユーザー情報の復元に失敗しました:', error);
-        localStorage.removeItem('taskAppUser');
+    // Firebase Authの状態を監視
+    const unsub = onAuthStateChanged(auth, (fbUser) => {
+      if (fbUser) {
+        setUser({ id: fbUser.uid, name: fbUser.displayName || 'ユーザー', email: fbUser.email || '' });
+      } else {
+        setUser(null);
       }
-    }
-    // デフォルトでログイン状態にしない（ログイン画面を表示）
-    setIsLoading(false);
+      setIsLoading(false);
+    });
+    return () => unsub();
   }, []);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      // 簡易的な認証（実際の実装ではAPIを呼び出す）
-      if (email === 'demo@example.com' && password === 'password') {
-        const userData: User = {
-          id: '1',
-          name: 'デモユーザー',
-          email: email,
-        };
-        setUser(userData);
-        localStorage.setItem('taskAppUser', JSON.stringify(userData));
-      } else {
-        throw new Error('メールアドレスまたはパスワードが正しくありません');
-      }
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      const fbUser = cred.user;
+      setUser({ id: fbUser.uid, name: fbUser.displayName || 'ユーザー', email: fbUser.email || '' });
     } catch (error) {
       throw error;
     } finally {
@@ -71,21 +61,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const logout = () => {
-    setUser(null);
-    localStorage.removeItem('taskAppUser');
+    signOut(auth).catch(() => {});
   };
 
   const register = async (name: string, email: string, password: string) => {
     setIsLoading(true);
     try {
-      // 簡易的な登録（実際の実装ではAPIを呼び出す）
-      const userData: User = {
-        id: Date.now().toString(),
-        name: name,
-        email: email,
-      };
-      setUser(userData);
-      localStorage.setItem('taskAppUser', JSON.stringify(userData));
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      if (name) {
+        try { await updateProfile(cred.user, { displayName: name }); } catch {}
+      }
+      const fbUser = cred.user;
+      setUser({ id: fbUser.uid, name: name || fbUser.displayName || 'ユーザー', email: fbUser.email || '' });
     } catch (error) {
       throw error;
     } finally {
