@@ -36,4 +36,8 @@ jobs:
         working-directory: desktop
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          ELECTRON_SKIP_NOTARIZE: true
+          USE_HARD_LINKS: false
+          DEBUG: electron-builder
 
