@@ -1,7 +1,9 @@
 import CryptoJS from 'crypto-js';
 
-// 暗号化キー（実際の実装では環境変数から取得）
-const ENCRYPTION_KEY = process.env.REACT_APP_ENCRYPTION_KEY || 'your-secret-key-here';
+// 暗号化キー（Vite環境変数 or ローカルに保存されたキー）
+const envKey = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_ENCRYPTION_KEY) || '';
+const localKey = (() => { try { return localStorage.getItem('encryptionKey') || ''; } catch { return ''; } })();
+const ENCRYPTION_KEY = envKey || localKey || 'fallback-secret-key-change-me';
 
 // AES-256暗号化
 export const encryptData = (data: string): string => {

@@ -34,6 +34,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
 import { saveTask, updateTask } from '../firebase';
+import { encryptData, sanitizeInput } from '../utils/security';
 
 interface Task {
   id: string;
@@ -111,11 +112,14 @@ const TaskForm: React.FC<TaskFormProps> = ({ open, onClose, editingTask }) => {
       // 現在のワークスペース/プロジェクト情報を取得
       const currentWorkspace = localStorage.getItem('currentWorkspace');
       const currentProject = localStorage.getItem('currentProject');
+      const safeTitle = sanitizeInput(formData.title);
+      const safeDescription = sanitizeInput(formData.description);
+      const encDescription = encryptData(safeDescription);
       
       const taskData: Task = {
         id: isEditing ? editingTask!.id : Date.now().toString(),
-        title: formData.title,
-        description: formData.description,
+        title: safeTitle,
+        description: encDescription,
         status: formData.status,
         priority: formData.priority,
         dueDate: dueDate.toISOString().split('T')[0],
