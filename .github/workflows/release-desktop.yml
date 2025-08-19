@@ -27,18 +27,8 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Cache npm
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.npm
-            desktop/node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('desktop/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
-
       - name: Install deps
-        run: npm ci
+        run: npm install
         working-directory: desktop
 
       - name: Build & Publish with electron-builder
