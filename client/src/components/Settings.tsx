@@ -44,8 +44,6 @@ import {
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
-import { Button, TextField } from '@mui/material';
-import { useAuth } from '../contexts/AuthContext';
 import { firebasePublicConfig } from '../firebase';
 
 interface Settings {
