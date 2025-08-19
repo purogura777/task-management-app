@@ -8,7 +8,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import png2icons from 'png2icons';
-import { createCanvas, loadImage } from 'canvas';
+import * as icojs from 'icojs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -28,23 +28,21 @@ async function main() {
   // 1) .ico をそのままコピー
   fs.copyFileSync(srcIco, path.join(buildDir, 'icon.ico'));
 
-  // 2) .ico -> PNG(512) へ変換（簡易: canvasでicoを読み込めない環境があるためpng生成をスキップ可能）
-  // ここではicoをそのままpngにできない場合があるので、icoを優先し、pngが無ければフォールバックで生成なしでもOK
+  // 2) .ico -> PNG 最大サイズを抽出
   try {
-    // ico 読み込み → png生成の代替として、icoをアイコンとしてcanvas描画するのは環境依存が強いため省略
-    // ユーザー提供のpngがない前提なので、pngはicoからの生成を省略し、ビルドではicoを使用します。
-    // 必要であればここにICO→PNG変換処理を追加。
-  } catch {}
-
-  // 3) ICNS 生成: pngが無い場合はスキップ（macビルド時のみ必要）
-  try {
-    const pngPath = path.join(buildDir, 'icon.png');
-    if (fs.existsSync(pngPath)) {
-      const input = fs.readFileSync(pngPath);
-      const icns = png2icons.createICNS(input, png2icons.BILINEAR, 0, false);
+    const buf = fs.readFileSync(srcIco);
+    const images = await icojs.parse(buf);
+    if (Array.isArray(images) && images.length > 0) {
+      const best = images.slice().sort((a, b) => (b.width * b.height) - (a.width * a.height))[0];
+      const pngBuffer = Buffer.from(best.buffer);
+      fs.writeFileSync(path.join(buildDir, 'icon.png'), pngBuffer);
+      // 3) PNG -> ICNS 生成（mac用）
+      const icns = png2icons.createICNS(pngBuffer, png2icons.BILINEAR, 0, false);
       if (icns) fs.writeFileSync(path.join(buildDir, 'icon.icns'), icns);
     }
-  } catch {}
+  } catch (e) {
+    console.log('ICO->PNG/ICNS 変換をスキップ:', e?.message || e);
+  }
 }
 
 main().catch((e) => {
