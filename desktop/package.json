@@ -28,6 +28,9 @@
     "directories": {
       "buildResources": "build"
     },
+    "publish": [
+      { "provider": "github" }
+    ],
     "win": {
       "target": ["nsis"],
       "icon": "build/icon.ico"
