@@ -13,6 +13,7 @@ let localPort = 17345;
 let authWin = null;
 let cloudWin = null;
 let autoStartEnabled = true;
+let cachedIconData = null;
 
 const isWindows = process.platform === 'win32';
 
@@ -21,13 +22,18 @@ function createFloatingWindow() {
   // アイコンをデータURLに変換（.ico→PNG）
   let iconDataUrl = '';
   try {
-    const tryPaths = [
-      path.join(process.resourcesPath || process.cwd(), 'icon.ico'),
-      path.join(process.cwd(), 'icon.ico')
-    ];
-    for (const p of tryPaths) {
-      const img = nativeImage.createFromPath(p);
-      if (img && !img.isEmpty()) { iconDataUrl = img.toDataURL(); break; }
+    const saved = store.get('icon_data');
+    if (typeof saved === 'string' && saved.startsWith('data:')) {
+      iconDataUrl = saved;
+    } else {
+      const tryPaths = [
+        path.join(process.resourcesPath || process.cwd(), 'icon.png'),
+        path.join(process.resourcesPath || process.cwd(), 'icon.ico'),
+      ];
+      for (const p of tryPaths) {
+        const img = nativeImage.createFromPath(p);
+        if (img && !img.isEmpty()) { iconDataUrl = img.toDataURL(); break; }
+      }
     }
   } catch {}
   floatWin = new BrowserWindow({
@@ -49,7 +55,7 @@ function createFloatingWindow() {
       .panel { width:72px; height:72px; border-radius:16px; background:linear-gradient(135deg,#14b8a6,#0ea5e9); box-shadow:0 14px 28px rgba(14,165,233,.35); position:absolute; left:6px; top:6px; cursor:grab; display:flex; align-items:center; justify-content:center; color:#fff; font-family:sans-serif; }
       .badge { position:absolute; right:-4px; top:-4px; min-width:18px; height:18px; border-radius:9px; background:#e11d48; color:#fff; font-size:12px; display:flex; align-items:center; justify-content:center; padding:0 4px; }
     </style></head><body>
-    <div class='panel' id='panel'><img id='icon' src='${iconDataUrl}' style='width:28px;height:28px;border-radius:6px'/><div class='badge' id='badge' style='display:none'>0</div></div>
+    <div class='panel' id='panel'><img id='icon' src='${iconDataUrl}' alt='icon' style='width:28px;height:28px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,.25)'/><div class='badge' id='badge' style='display:none'>0</div></div>
     <script>
       const { ipcRenderer, remote } = require('electron');
       const panel = document.getElementById('panel');
@@ -75,9 +81,17 @@ function createTray() {
   // トレイアイコン（ビルドアイコンが無い場合のフォールバック）
   let image;
   try {
-    // ビルド同梱のアイコン
-    const iconPath = path.join(process.resourcesPath || process.cwd(), 'icon.ico');
-    image = nativeImage.createFromPath(iconPath);
+    const saved = store.get('icon_data');
+    if (typeof saved === 'string' && saved.startsWith('data:')) {
+      image = nativeImage.createFromDataURL(saved);
+    }
+    if (!image || image.isEmpty()) {
+      // OS別に最適な形式を選択
+      const base = process.resourcesPath || process.cwd();
+      const ico = nativeImage.createFromPath(path.join(base, 'icon.ico'));
+      const png = nativeImage.createFromPath(path.join(base, 'icon.png'));
+      image = (!ico.isEmpty() ? ico : png);
+    }
     if (!image || image.isEmpty()) throw new Error('no icon');
   } catch {
     image = nativeImage.createEmpty();

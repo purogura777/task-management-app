@@ -12,8 +12,9 @@
   },
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder",
-    "dist": "electron-builder"
+    "build": "npm run prepare:icons && electron-builder",
+    "dist": "npm run prepare:icons && electron-builder",
+    "prepare:icons": "node scripts/prepare-icons.js"
   },
   "dependencies": {
     "electron-store": "^8.1.0",
@@ -22,7 +23,9 @@
   },
   "devDependencies": {
     "electron": "^29.3.0",
-    "electron-builder": "^24.13.3"
+    "electron-builder": "^24.13.3",
+    "icojs": "^0.16.1",
+    "png2icons": "^2.0.1"
   },
   "build": {
     "appId": "com.taskmanager.desktophelper",
@@ -34,17 +37,22 @@
       "buildResources": "build"
     },
     "extraResources": [
-      { "from": "../ChatGPT-Image-2025年8月6日-16_26_14.ico", "to": "icon.ico" }
+      { "from": "build/icon.png", "to": "icon.png" },
+      { "from": "build/icon.icns", "to": "icon.icns" },
+      { "from": "../ChatGPT-Image-2025年8月19日-19_55_16.ico", "to": "icon.ico" }
     ],
     "publish": [
       { "provider": "github", "owner": "purogura777", "repo": "task-management-app" }
     ],
     "win": {
       "target": ["nsis"],
-      "icon": "../ChatGPT-Image-2025年8月6日-16_26_14.ico"
+      "icon": "../ChatGPT-Image-2025年8月19日-19_55_16.ico",
+      "artifactName": "TaskManagerDesktop.Setup.${version}.${ext}"
     },
     "mac": {
-      "target": ["dmg"]
+      "target": ["dmg"],
+      "icon": "build/icon.icns",
+      "artifactName": "TaskManagerDesktop-${version}-${arch}.${ext}"
     },
     "linux": {
       "target": ["AppImage"]

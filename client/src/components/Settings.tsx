@@ -446,10 +446,18 @@ const Settings: React.FC = () => {
               >ダウンロード</Button>
               <Button
                 variant="outlined"
-                onClick={() => {
+                onClick={async () => {
                   const cfg = firebasePublicConfig as any;
                   const uid = user?.id || '';
-                  const parts = new URLSearchParams({ apiKey: cfg.apiKey, authDomain: cfg.authDomain, projectId: cfg.projectId, uid });
+                  // /app-icon.png が存在すれば優先し、なければ /favicon.ico を送る
+                  let icon = window.location.origin + '/app-icon.png';
+                  try {
+                    const head = await fetch(icon, { method: 'HEAD' });
+                    if (!head.ok) icon = window.location.origin + '/favicon.ico';
+                  } catch {
+                    icon = window.location.origin + '/favicon.ico';
+                  }
+                  const parts = new URLSearchParams({ apiKey: cfg.apiKey, authDomain: cfg.authDomain, projectId: cfg.projectId, uid, icon });
                   const url = `taskapp://bootstrap?${parts.toString()}`;
                   try { window.location.href = url; toast.success('デスクトップへ設定を送信しました'); } catch { toast.error('起動に失敗しました'); }
                 }}
