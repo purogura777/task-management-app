@@ -45,6 +45,8 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
 import { Button, TextField } from '@mui/material';
+import { useAuth } from '../contexts/AuthContext';
+import { firebasePublicConfig } from '../firebase';
 
 interface Settings {
   notifications: {
@@ -147,6 +149,7 @@ const Settings: React.FC = () => {
   const storageInfo = getStorageInfo();
   // デスクトップDL URLはローカルstateで管理して即時反映
   const [downloadUrl, setDownloadUrl] = useState<string>(localStorage.getItem('desktop_download_url') || '');
+  const { user } = useAuth();
 
   return (
     <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>
@@ -469,6 +472,16 @@ const Settings: React.FC = () => {
                   window.open(url, '_blank');
                 }}
               >ダウンロード</Button>
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  const cfg = firebasePublicConfig as any;
+                  const uid = user?.id || '';
+                  const parts = new URLSearchParams({ apiKey: cfg.apiKey, authDomain: cfg.authDomain, projectId: cfg.projectId, uid });
+                  const url = `taskapp://bootstrap?${parts.toString()}`;
+                  try { window.location.href = url; toast.success('デスクトップへ設定を送信しました'); } catch { toast.error('起動に失敗しました'); }
+                }}
+              >デスクトップを自動セットアップ</Button>
               <Button
                 variant="outlined"
                 onClick={async () => {

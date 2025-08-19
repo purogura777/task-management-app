@@ -12,14 +12,15 @@ let wss = null;
 let localPort = 17345;
 let authWin = null;
 let cloudWin = null;
+let autoStartEnabled = true;
 
 const isWindows = process.platform === 'win32';
 
 function createFloatingWindow() {
   if (floatWin) return floatWin;
   floatWin = new BrowserWindow({
-    width: 72,
-    height: 72,
+    width: 84,
+    height: 84,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -32,16 +33,16 @@ function createFloatingWindow() {
   });
   floatWin.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(`
     <html><head><style>
-      body { margin:0; overflow:hidden; }
-      .ball { width:60px; height:60px; border-radius:30px; background:linear-gradient(135deg,#6366f1,#4f46e5); box-shadow:0 10px 24px rgba(79,70,229,.35); position:absolute; left:6px; top:6px; cursor:grab; display:flex; align-items:center; justify-content:center; color:#fff; font-family:sans-serif; }
+      body { margin:0; overflow:hidden; background:transparent; }
+      .panel { width:72px; height:72px; border-radius:16px; background:linear-gradient(135deg,#14b8a6,#0ea5e9); box-shadow:0 14px 28px rgba(14,165,233,.35); position:absolute; left:6px; top:6px; cursor:grab; display:flex; align-items:center; justify-content:center; color:#fff; font-family:sans-serif; }
       .badge { position:absolute; right:-4px; top:-4px; min-width:18px; height:18px; border-radius:9px; background:#e11d48; color:#fff; font-size:12px; display:flex; align-items:center; justify-content:center; padding:0 4px; }
     </style></head><body>
-    <div class='ball' id='ball'><span id='icon'>🔔</span><div class='badge' id='badge' style='display:none'>0</div></div>
+    <div class='panel' id='panel'><span id='icon'>🔔</span><div class='badge' id='badge' style='display:none'>0</div></div>
     <script>
       const { ipcRenderer, remote } = require('electron');
-      const ball = document.getElementById('ball');
+      const panel = document.getElementById('panel');
       const badge = document.getElementById('badge');
-      let dragging=false; let sx=0, sy=0; let bx=6, by=6;
+      let dragging=false; let sx=0, sy=0;
       function setPos(x,y){ bx=x; by=y; window.moveTo(x,y); }
       window.addEventListener('mousedown', (e)=>{ dragging=true; sx=e.screenX; sy=e.screenY; document.body.style.cursor='grabbing'; });
       window.addEventListener('mouseup', ()=>{ dragging=false; document.body.style.cursor=''; ipcRenderer.send('float:pos', {x:window.screenX, y:window.screenY}); });
@@ -59,12 +60,29 @@ function createFloatingWindow() {
 }
 
 function createTray() {
-  const iconPath = path.join(process.cwd(), 'build', isWindows ? 'icon.ico' : 'icon.png');
-  const image = nativeImage.createFromPath(iconPath);
+  // トレイアイコン（ビルドアイコンが無い場合のフォールバック）
+  let image;
+  try {
+    const iconPath = path.join(process.cwd(), 'build', isWindows ? 'icon.ico' : 'icon.png');
+    image = nativeImage.createFromPath(iconPath);
+    if (!image || image.isEmpty()) throw new Error('no icon');
+  } catch {
+    image = nativeImage.createEmpty();
+  }
   tray = new Tray(image);
   const contextMenu = Menu.buildFromTemplate([
     { label: 'ログイン', click: () => openAuthWindow() },
     { label: 'ログアウト', click: () => doLogout() },
+    { type: 'separator' },
+    {
+      label: '自動起動を有効にする',
+      type: 'checkbox',
+      checked: autoStartEnabled,
+      click: (item) => {
+        autoStartEnabled = item.checked;
+        app.setLoginItemSettings({ openAtLogin: autoStartEnabled });
+      }
+    },
     { type: 'separator' },
     { label: 'バッジをクリア', click: () => floatWin && floatWin.webContents.send('badge:clear') },
     { type: 'separator' },
@@ -138,6 +156,7 @@ function connectRealtime() {
 }
 
 app.whenReady().then(() => {
+  try { app.setLoginItemSettings({ openAtLogin: true }); autoStartEnabled = true; } catch {}
   // プロトコルハンドラ登録（インストーラ経由で恒久化）
   try {
     if (process.defaultApp) {
@@ -156,6 +175,8 @@ app.whenReady().then(() => {
   const uid = store.get('pair_uid');
   const cfg = store.get('firebase_cfg');
   if (uid && cfg) startCloudListener(uid, cfg);
+  // 初回起動または未ログイン時はログイン画面を自動表示
+  if (!uid) openAuthWindow();
 });
 
 ipcMain.on('float:pos', (_, pos) => {
@@ -209,6 +230,21 @@ function handleDeepLink(urlStr) {
         setTimeout(connectRealtime, 200);
         if (floatWin) floatWin.webContents.send('notify', { title: 'デスクトップ連携', body: 'ペアリングしました' });
       }
+    } else if (u.host === 'bootstrap') {
+      // 1本のリンクでFirebase設定とUIDをまとめてセット
+      const cfg = {
+        apiKey: u.searchParams.get('apiKey'),
+        authDomain: u.searchParams.get('authDomain'),
+        projectId: u.searchParams.get('projectId')
+      };
+      if (cfg.apiKey && cfg.authDomain && cfg.projectId) {
+        store.set('firebase_cfg', cfg);
+      }
+      const uid = u.searchParams.get('uid');
+      if (uid) store.set('pair_uid', uid);
+      if (webSocket && webSocket.close) try { webSocket.close(); } catch {}
+      setTimeout(connectRealtime, 200);
+      if (cfg.apiKey && uid) if (floatWin) floatWin.webContents.send('notify', { title: 'セットアップ完了', body: '設定とペアリングを保存しました' });
     }
   } catch (e) {
     console.warn('handleDeepLink error', e);
@@ -221,6 +257,7 @@ function openAuthWindow() {
     width: 420,
     height: 560,
     resizable: false,
+    alwaysOnTop: true,
     webPreferences: { nodeIntegration: true, contextIsolation: false },
   });
   const savedCfg = store.get('firebase_cfg') || {};
@@ -282,8 +319,11 @@ function startCloudListener(uid, cfg) {
       (async () => {
         await load('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
         await load('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js');
+        await load('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js');
         firebase.initializeApp(cfg);
         const db = firebase.firestore();
+        const auth = firebase.auth();
+        try { await auth.setPersistence('local'); } catch {}
         db.collection('users').doc(uid).collection('notifications').orderBy('createdAt','desc').limit(20)
           .onSnapshot(snap => {
             snap.docChanges().forEach(ch => {

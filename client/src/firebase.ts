@@ -18,6 +18,8 @@ const firebaseConfig = {
   appId: import.meta.env?.VITE_FIREBASE_APP_ID || "1:993443920962:web:332a2b097d69bbe5b5c1db"
 };
 
+export const firebasePublicConfig = firebaseConfig;
+
 // Firebase初期化
 const app = initializeApp(firebaseConfig);
 
