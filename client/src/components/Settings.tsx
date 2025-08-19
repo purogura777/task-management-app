@@ -145,6 +145,8 @@ const Settings: React.FC = () => {
   };
 
   const storageInfo = getStorageInfo();
+  // デスクトップDL URLはローカルstateで管理して即時反映
+  const [downloadUrl, setDownloadUrl] = useState<string>(localStorage.getItem('desktop_download_url') || '');
 
   return (
     <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>
@@ -437,8 +439,8 @@ const Settings: React.FC = () => {
               fullWidth
               label="デスクトップアプリ ダウンロードURL"
               placeholder="https://github.com/OWNER/REPO/releases/latest"
-              value={localStorage.getItem('desktop_download_url') || ''}
-              onChange={(e) => localStorage.setItem('desktop_download_url', e.target.value)}
+              value={downloadUrl}
+              onChange={(e) => { setDownloadUrl(e.target.value); localStorage.setItem('desktop_download_url', e.target.value); }}
               sx={{ mb: 2 }}
             />
             <Box sx={{ display: 'flex', gap: 1 }}>
@@ -463,10 +465,36 @@ const Settings: React.FC = () => {
               <Button
                 variant="outlined"
                 onClick={() => {
-                  const url = localStorage.getItem('desktop_download_url') || 'https://github.com/OWNER/REPO/releases/latest';
+                  const url = downloadUrl || localStorage.getItem('desktop_download_url') || 'https://github.com/OWNER/REPO/releases/latest';
                   window.open(url, '_blank');
                 }}
               >ダウンロード</Button>
+              <Button
+                variant="outlined"
+                onClick={async () => {
+                  try {
+                    // GitHub最新リリースからOSに応じたアセットURLを取得
+                    const res = await fetch('https://api.github.com/repos/purogura777/task-management-app/releases/latest');
+                    if (!res.ok) throw new Error('GitHub API エラー');
+                    const data = await res.json();
+                    const assets: any[] = data.assets || [];
+                    const isMac = /Mac|iPhone|iPad/.test(navigator.userAgent);
+                    const pick = (arr: any[]) => {
+                      if (isMac) {
+                        return arr.find(a => a.name?.toLowerCase().endsWith('.dmg'))?.browser_download_url;
+                      }
+                      return arr.find(a => a.name?.toLowerCase().endsWith('.exe'))?.browser_download_url;
+                    };
+                    const url = pick(assets);
+                    if (!url) { toast.error('最新リリースに対応アセットが見つかりません'); return; }
+                    localStorage.setItem('desktop_download_url', url);
+                    setDownloadUrl(url);
+                    toast.success('最新リリースURLを設定しました');
+                  } catch (e) {
+                    toast.error('最新リリースURLの取得に失敗しました');
+                  }
+                }}
+              >最新リリースURLを自動取得</Button>
             </Box>
           </Paper>
         </Grid>
