@@ -478,14 +478,23 @@ const Settings: React.FC = () => {
                     if (!res.ok) throw new Error('GitHub API エラー');
                     const data = await res.json();
                     const assets: any[] = data.assets || [];
-                    const isMac = /Mac|iPhone|iPad/.test(navigator.userAgent);
-                    const pick = (arr: any[]) => {
-                      if (isMac) {
-                        return arr.find(a => a.name?.toLowerCase().endsWith('.dmg'))?.browser_download_url;
-                      }
-                      return arr.find(a => a.name?.toLowerCase().endsWith('.exe'))?.browser_download_url;
-                    };
-                    const url = pick(assets);
+                    const ua = navigator.userAgent.toLowerCase();
+                    const isMac = /mac|iphone|ipad/.test(ua);
+                    const isArm64 = /arm|aarch64|applewebkit.*(arm)/.test(ua) || /apple silicon|arm64/.test(ua);
+                    const toName = (a: any) => (a?.name || '').toLowerCase();
+                    let url: string | undefined;
+                    if (isMac) {
+                      // .dmgを優先、arm64があれば優先
+                      const dmgs = assets.filter(a => toName(a).endsWith('.dmg'));
+                      const arm = dmgs.find(a => /arm64/.test(toName(a)));
+                      url = (arm || dmgs[0])?.browser_download_url;
+                    } else {
+                      // Windows: Setup/Installer を優先。elevate.exeなどは除外
+                      const exes = assets.filter(a => toName(a).endsWith('.exe'));
+                      const setup = exes.find(a => /(setup|installer)/.test(toName(a)));
+                      const fallback = exes.find(a => !/(elevate|blockmap)/.test(toName(a)));
+                      url = (setup || fallback)?.browser_download_url;
+                    }
                     if (!url) { toast.error('最新リリースに対応アセットが見つかりません'); return; }
                     localStorage.setItem('desktop_download_url', url);
                     setDownloadUrl(url);
