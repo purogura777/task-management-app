@@ -458,11 +458,13 @@ const Settings: React.FC = () => {
                 variant="outlined"
                 onClick={async () => {
                   try {
-                    // GitHub最新リリースからOSに応じたアセットURLを取得
-                    const res = await fetch('https://api.github.com/repos/purogura777/task-management-app/releases/latest');
+                    // 安定版の最新リリース（ドラフト/プレリリースを除外）を取得
+                    const res = await fetch('https://api.github.com/repos/purogura777/task-management-app/releases?per_page=5');
                     if (!res.ok) throw new Error('GitHub API エラー');
-                    const data = await res.json();
-                    const assets: any[] = data.assets || [];
+                    const all = await res.json();
+                    const latest = (all || []).find((r: any) => !r.draft && !r.prerelease) || all?.[0];
+                    if (!latest) { toast.error('公開済みリリースが見つかりません'); return; }
+                    const assets: any[] = latest.assets || [];
                     const ua = navigator.userAgent.toLowerCase();
                     const isMac = /mac|iphone|ipad/.test(ua);
                     const isArm64 = /arm|aarch64|applewebkit.*(arm)/.test(ua) || /apple silicon|arm64/.test(ua);
@@ -475,9 +477,9 @@ const Settings: React.FC = () => {
                       url = (arm || dmgs[0])?.browser_download_url;
                     } else {
                       // Windows: Setup/Installer を優先。elevate.exeなどは除外
-                      const exes = assets.filter(a => toName(a).endsWith('.exe'));
-                      const setup = exes.find(a => /(setup|installer)/.test(toName(a)));
-                      const fallback = exes.find(a => !/(elevate|blockmap)/.test(toName(a)));
+                      const exes = assets.filter(a => toName(a).endsWith('.exe') && !/(elevate|blockmap)/.test(toName(a)));
+                      const setup = exes.find(a => /(setup|installer)/.test(toName(a)) || /(setup|installer)/.test(latest?.name?.toLowerCase()||''));
+                      const fallback = exes[0];
                       url = (setup || fallback)?.browser_download_url;
                     }
                     if (!url) { toast.error('最新リリースに対応アセットが見つかりません'); return; }
