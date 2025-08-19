@@ -42,7 +42,7 @@ const Login: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
-  const { login, register } = useAuth();
+  const { login, register, sendVerification } = useAuth();
 
   // ログインフォーム
   const [loginForm, setLoginForm] = useState({
@@ -157,6 +157,18 @@ const Login: React.FC = () => {
             </Button>
           </Box>
 
+          <Box sx={{ mt: 1 }}>
+            <Button size="small" onClick={async () => {
+              try {
+                setIsLoading(true);
+                await sendVerification(loginForm.email, loginForm.password);
+                toast.success('確認メールを再送しました');
+              } catch (e) {
+                toast.error('確認メールの再送に失敗しました');
+              } finally { setIsLoading(false); }
+            }}>確認メールを再送</Button>
+          </Box>
+
           <Box sx={{ mt: 2, textAlign: 'center' }}>
             <Typography variant="body2" color="text.secondary">
               デモアカウント: demo@example.com / password
@@ -225,6 +237,9 @@ const Login: React.FC = () => {
             >
               {isLoading ? <CircularProgress size={24} /> : '登録'}
             </Button>
+            <Typography variant="caption" color="text.secondary">
+              登録後、確認メールを送信します。メール内のリンクで認証を完了してください。
+            </Typography>
           </Box>
         </TabPanel>
       </Paper>

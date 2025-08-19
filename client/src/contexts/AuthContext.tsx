@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { auth } from '../firebase';
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut, createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth';
 
 interface User {
   id: string;
@@ -14,6 +14,7 @@ interface AuthContextType {
   logout: () => void;
   register: (name: string, email: string, password: string) => Promise<void>;
   isLoading: boolean;
+  sendVerification: (email: string, password: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -52,6 +53,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const cred = await signInWithEmailAndPassword(auth, email, password);
       const fbUser = cred.user;
+      if (!fbUser.emailVerified) {
+        try { await sendEmailVerification(fbUser); } catch {}
+        await signOut(auth);
+        throw new Error('メール認証が未完了です。受信メールのリンクを開いて認証してください。');
+      }
       setUser({ id: fbUser.uid, name: fbUser.displayName || 'ユーザー', email: fbUser.email || '' });
     } catch (error) {
       throw error;
@@ -71,13 +77,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (name) {
         try { await updateProfile(cred.user, { displayName: name }); } catch {}
       }
-      const fbUser = cred.user;
-      setUser({ id: fbUser.uid, name: name || fbUser.displayName || 'ユーザー', email: fbUser.email || '' });
+      try { await sendEmailVerification(cred.user, { url: window.location.origin }); } catch {}
+      await signOut(auth);
+      // ユーザーにはメール認証を案内
     } catch (error) {
       throw error;
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const sendVerification = async (email: string, password: string) => {
+    // 一時的にサインインして送信→即サインアウト
+    const cred = await signInWithEmailAndPassword(auth, email, password);
+    try { await sendEmailVerification(cred.user, { url: window.location.origin }); } finally { await signOut(auth); }
   };
 
   const value: AuthContextType = {
@@ -86,6 +99,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     logout,
     register,
     isLoading,
+    sendVerification,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

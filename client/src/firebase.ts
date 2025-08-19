@@ -1,9 +1,10 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore, onSnapshot, collection, doc, setDoc, updateDoc, deleteDoc, query, orderBy, getDoc, getDocs, where } from 'firebase/firestore';
+import { getFirestore, onSnapshot, collection, doc, setDoc, updateDoc, deleteDoc, query, orderBy, getDoc, getDocs, where, serverTimestamp } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { secureLocalStorage, SecurityLogger } from './utils/security';
 import { notify } from './utils/notifications';
+import { auth } from './firebase';
 
 // Firebase設定 - 実際のプロジェクトの設定に置き換えてください
 // Firebase Console (https://console.firebase.google.com/) でプロジェクトを作成し、
@@ -28,6 +29,18 @@ export const db = getFirestore(app);
 
 // Storage
 export const storage = getStorage(app);
+
+// 通知レコードをFirestoreに追加（ログイン時のみ）
+const addCloudNotification = async (title: string, body?: string) => {
+  try {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+    const ref = doc(collection(db, 'users', uid, 'notifications'));
+    await setDoc(ref, { title, body: body || '', createdAt: serverTimestamp() });
+  } catch (e) {
+    console.warn('addCloudNotification failed', e);
+  }
+};
 
 // ローカルストレージの重複データをクリアする関数
 const clearDuplicateTasks = (userId: string) => {
@@ -209,6 +222,7 @@ export const saveTask = async (userId: string, task: any) => {
       // ローカルストレージに保存
       localStorage.setItem(`tasks_${userId}`, JSON.stringify(tasks));
       notify('task_created', { Title: 'タスクを作成', Body: task.title, TaskId: task.id });
+      addCloudNotification('タスクを作成', task.title);
       
       // セキュリティログ
       const securityLogger = SecurityLogger.getInstance();
@@ -245,6 +259,7 @@ export const saveTask = async (userId: string, task: any) => {
     }
     localStorage.setItem(`tasks_${userId}`, JSON.stringify(tasks));
     notify('task_created', { Title: 'タスクを作成', Body: task.title, TaskId: task.id });
+    addCloudNotification('タスクを作成', task.title);
   } catch (error) {
     console.error('タスクの保存に失敗しました:', error);
     // Firebaseが失敗した場合はローカルストレージに保存
@@ -322,6 +337,7 @@ export const updateTask = async (userId: string, taskId: string, updates: any) =
       );
       localStorage.setItem(`tasks_${userId}`, JSON.stringify(updatedTasks));
       notify('task_updated', { Title: 'タスクを更新', Body: updates?.title || '', TaskId: taskId });
+      addCloudNotification('タスクを更新', updates?.title || '');
     }
   } catch (error) {
     console.error('タスクの更新に失敗しました:', error);
@@ -369,6 +385,7 @@ export const deleteTask = async (userId: string, taskId: string) => {
         localStorage.setItem(`tasks_${userId}`, JSON.stringify(filteredTasks));
         console.log('ローカルストレージからタスクを削除しました');
         notify('task_deleted', { Title: 'タスクを削除', Body: taskId, TaskId: taskId });
+        addCloudNotification('タスクを削除', taskId);
         
         // 削除後に即座にコールバックを呼び出してリアルタイム更新を実行
         setTimeout(() => {
@@ -393,6 +410,7 @@ export const deleteTask = async (userId: string, taskId: string) => {
       const filteredTasks = tasks.filter((task: any) => task.id !== taskId);
       localStorage.setItem(`tasks_${userId}`, JSON.stringify(filteredTasks));
       notify('task_deleted', { Title: 'タスクを削除', Body: taskId, TaskId: taskId });
+      addCloudNotification('タスクを削除', taskId);
     }
   } catch (error) {
     console.error('タスクの削除に失敗しました:', error);
@@ -627,6 +645,7 @@ export const deleteProjectTask = async (projectId: string, taskId: string) => {
     const filtered = tasks.filter((t: any) => t.id !== taskId);
     writeLocalJson(key, filtered);
     notify('task_deleted', { Title: 'タスクを削除(共有)', Body: taskId, TaskId: taskId, ProjectId: projectId });
+    addCloudNotification('タスクを削除(共有)', taskId);
     SecurityLogger.getInstance().log('info', '共有タスク削除(Local)', { projectId, taskId });
     return;
   }
@@ -634,6 +653,7 @@ export const deleteProjectTask = async (projectId: string, taskId: string) => {
   const ref = doc(db, 'projects', projectId, 'tasks', taskId);
   await deleteDoc(ref);
   notify('task_deleted', { Title: 'タスクを削除(共有)', Body: taskId, TaskId: taskId, ProjectId: projectId });
+  addCloudNotification('タスクを削除(共有)', taskId);
 };
 
 export const setupUnifiedTasksListener = (userId: string, callback: (tasks: any[]) => void) => {
