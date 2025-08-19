@@ -458,31 +458,34 @@ const Settings: React.FC = () => {
                 variant="outlined"
                 onClick={async () => {
                   try {
-                    // 安定版の最新リリース（ドラフト/プレリリースを除外）を取得
-                    const res = await fetch('https://api.github.com/repos/purogura777/task-management-app/releases?per_page=5');
+                    const headers: any = { 'Accept': 'application/vnd.github+json' };
+                    // 直近の安定版を公開日でソートして取得
+                    const res = await fetch('https://api.github.com/repos/purogura777/task-management-app/releases?per_page=20', { headers });
                     if (!res.ok) throw new Error('GitHub API エラー');
-                    const all = await res.json();
-                    const latest = (all || []).find((r: any) => !r.draft && !r.prerelease) || all?.[0];
-                    if (!latest) { toast.error('公開済みリリースが見つかりません'); return; }
-                    const assets: any[] = latest.assets || [];
+                    const all: any[] = await res.json();
+                    if (!Array.isArray(all) || all.length === 0) { toast.error('リリースが見つかりません'); return; }
+                    const stable = all.filter(r => !r.draft && !r.prerelease).sort((a, b) => new Date(b.published_at||b.created_at).getTime() - new Date(a.published_at||a.created_at).getTime());
+                    const latest = stable[0] || all.sort((a, b) => new Date(b.published_at||b.created_at).getTime() - new Date(a.published_at||a.created_at).getTime())[0];
+                    const assets: any[] = (latest?.assets || []);
                     const ua = navigator.userAgent.toLowerCase();
                     const isMac = /mac|iphone|ipad/.test(ua);
                     const isArm64 = /arm|aarch64|applewebkit.*(arm)/.test(ua) || /apple silicon|arm64/.test(ua);
                     const toName = (a: any) => (a?.name || '').toLowerCase();
                     let url: string | undefined;
                     if (isMac) {
-                      // .dmgを優先、arm64があれば優先
                       const dmgs = assets.filter(a => toName(a).endsWith('.dmg'));
                       const arm = dmgs.find(a => /arm64/.test(toName(a)));
-                      url = (arm || dmgs[0])?.browser_download_url;
+                      const bySize = dmgs.slice().sort((a,b) => (b.size||0)-(a.size||0))[0];
+                      url = (arm || bySize || dmgs[0])?.browser_download_url;
                     } else {
-                      // Windows: Setup/Installer を優先。elevate.exeなどは除外
                       const exes = assets.filter(a => toName(a).endsWith('.exe') && !/(elevate|blockmap)/.test(toName(a)));
-                      const setup = exes.find(a => /(setup|installer)/.test(toName(a)) || /(setup|installer)/.test(latest?.name?.toLowerCase()||''));
-                      const fallback = exes[0];
-                      url = (setup || fallback)?.browser_download_url;
+                      const prefer = exes.find(a => /(setup|installer)/.test(toName(a)));
+                      const bySize = exes.slice().sort((a,b) => (b.size||0)-(a.size||0))[0];
+                      url = (prefer || bySize || exes[0])?.browser_download_url;
                     }
-                    if (!url) { toast.error('最新リリースに対応アセットが見つかりません'); return; }
+                    // 最後の手段としてリリースページURL
+                    if (!url) url = latest?.html_url;
+                    if (!url) { toast.error('取得できるダウンロードURLがありません'); return; }
                     localStorage.setItem('desktop_download_url', url);
                     setDownloadUrl(url);
                     toast.success('最新リリースURLを設定しました');
