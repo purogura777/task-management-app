@@ -31,8 +31,8 @@ jobs:
         run: npm install
         working-directory: desktop
 
-      - name: Build & Publish with electron-builder (force publish target)
-        run: npx electron-builder -p always -c.publish.provider=github -c.publish.owner=purogura777 -c.publish.repo=task-management-app
+      - name: Build & Publish with electron-builder
+        run: npm run dist -- -p always
         working-directory: desktop
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
