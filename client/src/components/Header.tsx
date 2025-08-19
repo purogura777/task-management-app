@@ -16,6 +16,7 @@ import {
   ListItemIcon,
   ListItemText,
   Fab,
+  TextField,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -57,6 +58,8 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   const [notificationAnchorEl, setNotificationAnchorEl] = useState<null | HTMLElement>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
+  const [searchAnchorEl, setSearchAnchorEl] = useState<null | HTMLElement>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // 通知をローカルストレージから読み込み
   const loadNotifications = () => {
@@ -249,16 +252,17 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
           variant="h5"
           component="div"
           sx={{
-            flexGrow: 1,
             fontWeight: 700,
             color: '#6366f1',
             cursor: 'pointer',
             fontSize: '1.5rem',
+            display: 'inline-flex',
           }}
           onClick={() => navigate('/')}
         >
           TaskFlow
         </Typography>
+        <Box sx={{ flexGrow: 1 }} />
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {/* 検索ボタン */}
@@ -271,6 +275,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                   backgroundColor: '#f8f9fa',
                 },
               }}
+              onClick={(e) => { setSearchAnchorEl(e.currentTarget); setSearchQuery(''); }}
             >
               <Search />
             </IconButton>
@@ -439,6 +444,46 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
               <Typography variant="body2" color="text.secondary">
                 通知はありません
               </Typography>
+            </MenuItem>
+          )}
+        </Menu>
+
+        {/* 検索メニュー */}
+        <Menu
+          anchorEl={searchAnchorEl}
+          open={Boolean(searchAnchorEl)}
+          onClose={() => setSearchAnchorEl(null)}
+          PaperProps={{
+            sx: { width: 420, borderRadius: 2, boxShadow: '0 8px 24px rgba(0,0,0,.12)', border: '1px solid #e9ecef' }
+          }}
+        >
+          <Box sx={{ p: 2 }}>
+            <TextField
+              autoFocus
+              fullWidth
+              size="small"
+              placeholder="タイトルや説明で検索"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </Box>
+          {tasks
+            .filter(t => {
+              const q = searchQuery.trim().toLowerCase();
+              if (!q) return false;
+              const title = String(t.title || '').toLowerCase();
+              const desc = String(t.description || '').toLowerCase();
+              return title.includes(q) || desc.includes(q);
+            })
+            .slice(0, 10)
+            .map(t => (
+              <MenuItem key={t.id} onClick={() => { setSearchAnchorEl(null); navigate(`/task/edit/${t.id}`); }}>
+                <ListItemText primary={t.title} secondary={t.dueDate ? `期限: ${t.dueDate}` : undefined} />
+              </MenuItem>
+            ))}
+          {searchQuery && tasks.filter(t => (String(t.title||'')+String(t.description||'')).toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
+            <MenuItem disabled>
+              <ListItemText primary="該当なし" />
             </MenuItem>
           )}
         </Menu>

@@ -18,6 +18,18 @@ const isWindows = process.platform === 'win32';
 
 function createFloatingWindow() {
   if (floatWin) return floatWin;
+  // アイコンをデータURLに変換（.ico→PNG）
+  let iconDataUrl = '';
+  try {
+    const tryPaths = [
+      path.join(process.resourcesPath || process.cwd(), 'icon.ico'),
+      path.join(process.cwd(), 'icon.ico')
+    ];
+    for (const p of tryPaths) {
+      const img = nativeImage.createFromPath(p);
+      if (img && !img.isEmpty()) { iconDataUrl = img.toDataURL(); break; }
+    }
+  } catch {}
   floatWin = new BrowserWindow({
     width: 84,
     height: 84,
@@ -37,7 +49,7 @@ function createFloatingWindow() {
       .panel { width:72px; height:72px; border-radius:16px; background:linear-gradient(135deg,#14b8a6,#0ea5e9); box-shadow:0 14px 28px rgba(14,165,233,.35); position:absolute; left:6px; top:6px; cursor:grab; display:flex; align-items:center; justify-content:center; color:#fff; font-family:sans-serif; }
       .badge { position:absolute; right:-4px; top:-4px; min-width:18px; height:18px; border-radius:9px; background:#e11d48; color:#fff; font-size:12px; display:flex; align-items:center; justify-content:center; padding:0 4px; }
     </style></head><body>
-    <div class='panel' id='panel'><span id='icon'>🔔</span><div class='badge' id='badge' style='display:none'>0</div></div>
+    <div class='panel' id='panel'><img id='icon' src='${iconDataUrl}' style='width:28px;height:28px;border-radius:6px'/><div class='badge' id='badge' style='display:none'>0</div></div>
     <script>
       const { ipcRenderer, remote } = require('electron');
       const panel = document.getElementById('panel');
@@ -63,7 +75,8 @@ function createTray() {
   // トレイアイコン（ビルドアイコンが無い場合のフォールバック）
   let image;
   try {
-    const iconPath = path.join(process.cwd(), 'build', isWindows ? 'icon.ico' : 'icon.png');
+    // ビルド同梱のアイコン
+    const iconPath = path.join(process.resourcesPath || process.cwd(), 'icon.ico');
     image = nativeImage.createFromPath(iconPath);
     if (!image || image.isEmpty()) throw new Error('no icon');
   } catch {
@@ -156,6 +169,7 @@ function connectRealtime() {
 }
 
 app.whenReady().then(() => {
+  try { app.setAppUserModelId('com.taskmanager.desktophelper'); } catch {}
   try { app.setLoginItemSettings({ openAtLogin: true }); autoStartEnabled = true; } catch {}
   // プロトコルハンドラ登録（インストーラ経由で恒久化）
   try {
@@ -245,6 +259,9 @@ function handleDeepLink(urlStr) {
       if (webSocket && webSocket.close) try { webSocket.close(); } catch {}
       setTimeout(connectRealtime, 200);
       if (cfg.apiKey && uid) if (floatWin) floatWin.webContents.send('notify', { title: 'セットアップ完了', body: '設定とペアリングを保存しました' });
+      // ブートストラップ完了後は案内ウィンドウを閉じて購読を開始
+      if (authWin) { try { authWin.close(); } catch {} authWin = null; }
+      if (cfg && uid) startCloudListener(uid, cfg);
     }
   } catch (e) {
     console.warn('handleDeepLink error', e);
@@ -255,53 +272,19 @@ function openAuthWindow() {
   if (authWin) { authWin.focus(); return; }
   authWin = new BrowserWindow({
     width: 420,
-    height: 560,
+    height: 240,
     resizable: false,
     alwaysOnTop: true,
     webPreferences: { nodeIntegration: true, contextIsolation: false },
   });
-  const savedCfg = store.get('firebase_cfg') || {};
   authWin.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(`
-    <html><head><meta charset='utf-8'><title>ログイン</title>
-    <style>body{font-family:sans-serif;margin:16px}input,button{width:100%;margin:6px 0;padding:8px}small{color:#666}</style>
+    <html><head><meta charset='utf-8'><title>セットアップ待機中</title>
+    <style>body{font-family:sans-serif;margin:16px;line-height:1.6}</style>
     </head><body>
-    <h3>Firebase 設定</h3>
-    <input id='apiKey' placeholder='apiKey' value='${savedCfg.apiKey || ''}' />
-    <input id='authDomain' placeholder='authDomain' value='${savedCfg.authDomain || ''}' />
-    <input id='projectId' placeholder='projectId' value='${savedCfg.projectId || ''}' />
-    <h3>ログイン</h3>
-    <input id='email' placeholder='メールアドレス' />
-    <input id='password' placeholder='パスワード' type='password' />
-    <button id='loginBtn'>保存してログイン</button>
-    <small>Googleログイン等は後続対応可能です。</small>
-    <script>
-      const { ipcRenderer } = require('electron');
-      document.getElementById('loginBtn').onclick = async () => {
-        const cfg = {
-          apiKey: document.getElementById('apiKey').value.trim(),
-          authDomain: document.getElementById('authDomain').value.trim(),
-          projectId: document.getElementById('projectId').value.trim(),
-        };
-        const email = document.getElementById('email').value.trim();
-        const password = document.getElementById('password').value.trim();
-        if (!cfg.apiKey || !cfg.authDomain || !cfg.projectId || !email || !password) {
-          alert('すべて入力してください'); return;
-        }
-        const appUrl = 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js';
-        const authUrl = 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js';
-        const firestoreUrl = 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js';
-        await new Promise(r=>{ const s=document.createElement('script'); s.src=appUrl; s.onload=r; document.body.appendChild(s); });
-        await new Promise(r=>{ const s=document.createElement('script'); s.src=authUrl; s.onload=r; document.body.appendChild(s); });
-        await new Promise(r=>{ const s=document.createElement('script'); s.src=firestoreUrl; s.onload=r; document.body.appendChild(s); });
-        const app = firebase.initializeApp(cfg);
-        const auth = firebase.auth();
-        try {
-          const res = await auth.signInWithEmailAndPassword(email, password);
-          const uid = res.user.uid;
-          ipcRenderer.send('auth:login', { uid, cfg });
-        } catch(e) { alert('ログイン失敗: '+e.message); }
-      };
-    </script>
+    <h3>デスクトップ連携の自動セットアップ</h3>
+    <p>Webの「設定 > デスクトップ連携」で「デスクトップを自動セットアップ」をクリックしてください。<br/>
+    受信した設定を保存し、通知の購読を開始します。</p>
+    <p style='color:#666'>この画面は自動で閉じます。</p>
     </body></html>
   `));
   authWin.on('closed', () => { authWin = null; });
@@ -343,6 +326,18 @@ function doLogout() {
   if (cloudWin) { try { cloudWin.close(); } catch {} cloudWin = null; }
   if (floatWin) floatWin.webContents.send('notify', { title: 'ログアウト', body: 'デスクトップ連携を停止しました' });
 }
+
+// Firestore側からの通知をフローティング/ローカルWSへ中継
+ipcMain.on('cloud:notify', (_e, payload) => {
+  try { if (floatWin) floatWin.webContents.send('notify', payload); } catch {}
+  try {
+    if (wss) {
+      for (const client of wss.clients) {
+        try { client.send(JSON.stringify({ type: 'notify', title: payload.title, body: payload.body })); } catch {}
+      }
+    }
+  } catch {}
+});
 
 ipcMain.on('auth:login', (_e, { uid, cfg }) => {
   store.set('pair_uid', uid);

@@ -419,22 +419,7 @@ const Settings: React.FC = () => {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               トレイ常駐のフローティング通知をOS上に表示します。初回はデスクトップアプリをインストールし、以下の「今すぐ設定」でWebとペアリングしてください。
             </Typography>
-            <TextField
-              fullWidth
-              label="WebSocketサーバーURL"
-              placeholder="wss://your-realtime.example/ws"
-              value={localStorage.getItem('desktop_ws_url') || ''}
-              onChange={(e) => localStorage.setItem('desktop_ws_url', e.target.value)}
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              fullWidth
-              label="ペアリングトークン"
-              placeholder="任意のユーザー固有トークン"
-              value={localStorage.getItem('desktop_pair_token') || ''}
-              onChange={(e) => localStorage.setItem('desktop_pair_token', e.target.value)}
-              sx={{ mb: 2 }}
-            />
+            {/* 自動セットアップに統一。WS URL／トークンは不要のため非表示化 */}
             <TextField
               fullWidth
               label="デスクトップアプリ ダウンロードURL"
@@ -444,17 +429,7 @@ const Settings: React.FC = () => {
               sx={{ mb: 2 }}
             />
             <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button
-                variant="contained"
-                onClick={() => {
-                  const ws = localStorage.getItem('desktop_ws_url') || '';
-                  const token = localStorage.getItem('desktop_pair_token') || '';
-                  if (!ws || !token) { toast.error('WS URLとトークンを入力してください'); return; }
-                  const url = `taskapp://set?ws=${encodeURIComponent(ws)}&token=${encodeURIComponent(token)}`;
-                  try { window.location.href = url; } catch {}
-                  toast.success('デスクトップに設定を送信しました');
-                }}
-              >今すぐ設定</Button>
+              {/* 今すぐ設定（WS/トークン）は廃止 */}
               <Button
                 variant="outlined"
                 onClick={() => {

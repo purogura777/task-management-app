@@ -33,11 +33,15 @@
     "directories": {
       "buildResources": "build"
     },
+    "extraResources": [
+      { "from": "../ChatGPT-Image-2025年8月6日-16_26_14.ico", "to": "icon.ico" }
+    ],
     "publish": [
       { "provider": "github", "owner": "purogura777", "repo": "task-management-app" }
     ],
     "win": {
-      "target": ["nsis"]
+      "target": ["nsis"],
+      "icon": "../ChatGPT-Image-2025年8月6日-16_26_14.ico"
     },
     "mac": {
       "target": ["dmg"]
