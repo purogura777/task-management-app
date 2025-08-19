@@ -50,6 +50,7 @@ import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { useAuth } from '../contexts/AuthContext';
 import { setupUnifiedTasksListener, saveTask, updateTask, deleteTask } from '../firebase';
+import { decryptData, encryptData, sanitizeInput } from '../utils/security';
 
 interface Task {
   id: string;
@@ -85,9 +86,19 @@ const ListView: React.FC = () => {
 
     // Firebaseのリアルタイムリスナーを設定
     const unsubscribe = setupUnifiedTasksListener(user.id, (firebaseTasks) => {
+      // 受信時に説明を復号（暗号化でない場合はそのまま）
+      const decoded = (firebaseTasks || []).map((t: any) => ({
+        ...t,
+        description: ((): string => {
+          try {
+            const plain = decryptData(t.description || '');
+            return plain || t.description || '';
+          } catch { return t.description || ''; }
+        })(),
+      }));
       const workspace = localStorage.getItem('currentWorkspace');
       const project = localStorage.getItem('currentProject');
-      let next = firebaseTasks;
+      let next = decoded;
       if (workspace) {
         next = next.filter((t: any) => t.workspace === workspace || (!t.workspace && workspace === '個人プロジェクト'));
       } else if (project) {
@@ -227,10 +238,18 @@ const ListView: React.FC = () => {
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           };
+          // サニタイズ + 暗号化
+          newTask.title = sanitizeInput(newTask.title);
+          newTask.description = encryptData(sanitizeInput(newTask.description));
           await saveTask(user.id, newTask);
         } else {
           // 既存タスクの更新
-          await updateTask(user.id, editingTask.id, editingTask);
+          const safe = {
+            ...editingTask,
+            title: sanitizeInput(editingTask.title),
+            description: encryptData(sanitizeInput(editingTask.description)),
+          } as any;
+          await updateTask(user.id, editingTask.id, safe);
         }
       }
       setDialogOpen(false);

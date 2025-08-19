@@ -147,7 +147,6 @@ const Settings: React.FC = () => {
   const storageInfo = getStorageInfo();
   // デスクトップDL URLはローカルstateで管理して即時反映
   const [downloadUrl, setDownloadUrl] = useState<string>(localStorage.getItem('desktop_download_url') || '');
-  const { user } = useAuth();
 
   return (
     <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>
