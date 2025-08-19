@@ -32,7 +32,7 @@ jobs:
         working-directory: desktop
 
       - name: Build & Publish with electron-builder
-        run: npm run dist
+        run: npm run dist -- -p always
         working-directory: desktop
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
