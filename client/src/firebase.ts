@@ -9,12 +9,12 @@ import { notify } from './utils/notifications';
 // Firebase Console (https://console.firebase.google.com/) でプロジェクトを作成し、
 // プロジェクト設定 > 全般 > マイアプリ > Webアプリを追加して取得した設定を以下に貼り付けてください
 const firebaseConfig = {
-  apiKey: import.meta.env?.VITE_FIREBASE_API_KEY || "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-  authDomain: import.meta.env?.VITE_FIREBASE_AUTH_DOMAIN || "task-management-app-xxxxx.firebaseapp.com",
-  projectId: import.meta.env?.VITE_FIREBASE_PROJECT_ID || "task-management-app-xxxxx",
-  storageBucket: import.meta.env?.VITE_FIREBASE_STORAGE_BUCKET || "task-management-app-xxxxx.appspot.com",
-  messagingSenderId: import.meta.env?.VITE_FIREBASE_MESSAGING_SENDER_ID || "123456789012",
-  appId: import.meta.env?.VITE_FIREBASE_APP_ID || "1:123456789012:web:abcdefghijklmnop"
+  apiKey: import.meta.env?.VITE_FIREBASE_API_KEY || "AIzaSyBO97MjlMFzvcDOJiCzx5fuWtrDttxqX1I",
+  authDomain: import.meta.env?.VITE_FIREBASE_AUTH_DOMAIN || "satsuki-task.firebaseapp.com",
+  projectId: import.meta.env?.VITE_FIREBASE_PROJECT_ID || "satsuki-task",
+  storageBucket: import.meta.env?.VITE_FIREBASE_STORAGE_BUCKET || "satsuki-task.firebasestorage.app",
+  messagingSenderId: import.meta.env?.VITE_FIREBASE_MESSAGING_SENDER_ID || "993443920962",
+  appId: import.meta.env?.VITE_FIREBASE_APP_ID || "1:993443920962:web:332a2b097d69bbe5b5c1db"
 };
 
 // Firebase初期化
@@ -52,7 +52,7 @@ export const setupRealtimeListener = (userId: string, callback: (tasks: any[]) =
     console.log('Firebaseリスナーを設定中...', userId);
     
     // Firebaseが設定されていない場合はローカルストレージを使用
-    if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
+    if (firebaseConfig.apiKey === "AIzaSyBO97MjlMFzvcDOJiCzx5fuWtrDttxqX1I") {
       console.log('Firebase設定がダミーのため、ローカルストレージを使用します');
       
       // 重複データをクリア
@@ -173,7 +173,7 @@ export const saveTask = async (userId: string, task: any) => {
     }
 
     // Firebaseが設定されていない場合はローカルストレージのみ使用
-    if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
+    if (firebaseConfig.apiKey === "AIzaSyBO97MjlMFzvcDOJiCzx5fuWtrDttxqX1I") {
       console.log('Firebase設定がダミーのため、ローカルストレージに保存します');
       
       // ローカルストレージから既存のタスクを取得
@@ -295,7 +295,7 @@ export const updateTask = async (userId: string, taskId: string, updates: any) =
     }
 
     // Firebaseが設定されていない場合はローカルストレージのみ使用
-    if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
+    if (firebaseConfig.apiKey === "AIzaSyBO97MjlMFzvcDOJiCzx5fuWtrDttxqX1I") {
       console.log('Firebase設定がダミーのため、ローカルストレージを更新します');
       const savedTasks = localStorage.getItem(`tasks_${userId}`);
       if (savedTasks) {
@@ -360,7 +360,7 @@ export const deleteTask = async (userId: string, taskId: string) => {
     }
 
     // Firebaseが設定されていない場合はローカルストレージのみ使用
-    if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
+    if (firebaseConfig.apiKey === "AIzaSyBO97MjlMFzvcDOJiCzx5fuWtrDttxqX1I") {
       console.log('Firebase設定がダミーのため、ローカルストレージから削除します');
       const savedTasks = localStorage.getItem(`tasks_${userId}`);
       if (savedTasks) {
@@ -462,7 +462,7 @@ export const createProject = async (userId: string, name: string, visibility: 'p
     createdAt: new Date().toISOString(),
   };
 
-  if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
+  if (firebaseConfig.apiKey === "AIzaSyBO97MjlMFzvcDOJiCzx5fuWtrDttxqX1I") {
     const projects: Project[] = readLocalJson('projects', []);
     projects.push(project);
     writeLocalJson('projects', projects);
@@ -477,7 +477,7 @@ export const createProject = async (userId: string, name: string, visibility: 'p
 };
 
 export const listMyProjects = async (userId: string): Promise<Project[]> => {
-  if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
+  if (firebaseConfig.apiKey === "AIzaSyBO97MjlMFzvcDOJiCzx5fuWtrDttxqX1I") {
     const projects: Project[] = readLocalJson('projects', []);
     return projects.filter(p => p.ownerId === userId || p.memberIds.includes(userId));
   }
@@ -492,7 +492,7 @@ export const listMyProjects = async (userId: string): Promise<Project[]> => {
 };
 
 export const addProjectMember = async (projectId: string, targetUserId: string, role: ProjectRole = 'editor') => {
-  if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
+  if (firebaseConfig.apiKey === "AIzaSyBO97MjlMFzvcDOJiCzx5fuWtrDttxqX1I") {
     const projects: Project[] = readLocalJson('projects', []);
     const idx = projects.findIndex(p => p.id === projectId);
     if (idx === -1) throw new Error('Project not found');
@@ -524,7 +524,7 @@ export const generateInvite = async (projectId: string, createdBy: string, role:
     expiresAt: new Date(Date.now() + expiresInHours * 3600 * 1000).toISOString(),
   };
 
-  if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
+  if (firebaseConfig.apiKey === "AIzaSyBO97MjlMFzvcDOJiCzx5fuWtrDttxqX1I") {
     const invites: Record<string, ProjectInvite> = readLocalJson('projectInvites', {});
     invites[token] = invite;
     writeLocalJson('projectInvites', invites);
@@ -538,7 +538,7 @@ export const generateInvite = async (projectId: string, createdBy: string, role:
 };
 
 export const acceptInvite = async (token: string, userId: string) => {
-  if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
+  if (firebaseConfig.apiKey === "AIzaSyBO97MjlMFzvcDOJiCzx5fuWtrDttxqX1I") {
     const invites: Record<string, ProjectInvite> = readLocalJson('projectInvites', {});
     const invite = invites[token];
     if (!invite) throw new Error('招待が見つかりません');
@@ -563,7 +563,7 @@ export const acceptInvite = async (token: string, userId: string) => {
 
 // 共有プロジェクトのタスク購読
 export const setupProjectTasksListener = (projectId: string, callback: (tasks: any[]) => void) => {
-  if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
+  if (firebaseConfig.apiKey === "AIzaSyBO97MjlMFzvcDOJiCzx5fuWtrDttxqX1I") {
     const key = `project_tasks_${projectId}`;
     const push = () => {
       const tasks = readLocalJson(key, []);
@@ -587,7 +587,7 @@ export const setupProjectTasksListener = (projectId: string, callback: (tasks: a
 };
 
 export const saveProjectTask = async (projectId: string, task: any) => {
-  if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
+  if (firebaseConfig.apiKey === "AIzaSyBO97MjlMFzvcDOJiCzx5fuWtrDttxqX1I") {
     const key = `project_tasks_${projectId}`;
     const tasks = readLocalJson(key, []);
     const idx = tasks.findIndex((t: any) => t.id === task.id);
@@ -603,7 +603,7 @@ export const saveProjectTask = async (projectId: string, task: any) => {
 };
 
 export const updateProjectTask = async (projectId: string, taskId: string, updates: any) => {
-  if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
+  if (firebaseConfig.apiKey === "AIzaSyBO97MjlMFzvcDOJiCzx5fuWtrDttxqX1I") {
     const key = `project_tasks_${projectId}`;
     const tasks = readLocalJson(key, []);
     const idx = tasks.findIndex((t: any) => t.id === taskId);
@@ -621,7 +621,7 @@ export const updateProjectTask = async (projectId: string, taskId: string, updat
 };
 
 export const deleteProjectTask = async (projectId: string, taskId: string) => {
-  if (firebaseConfig.apiKey === "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") {
+  if (firebaseConfig.apiKey === "AIzaSyBO97MjlMFzvcDOJiCzx5fuWtrDttxqX1I") {
     const key = `project_tasks_${projectId}`;
     const tasks = readLocalJson(key, []);
     const filtered = tasks.filter((t: any) => t.id !== taskId);
