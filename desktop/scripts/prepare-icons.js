@@ -4,14 +4,9 @@
   - 出力: desktop/build/icon.ico, icon.png, icon.icns
 */
 
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import png2icons from 'png2icons';
-import * as icojs from 'icojs';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const fs = require('fs');
+const path = require('path');
+const png2icons = require('png2icons');
 
 async function main() {
   const projectRoot = path.resolve(__dirname, '..', '..');
@@ -33,15 +28,21 @@ async function main() {
     try { fs.copyFileSync(srcIco, path.join(buildDir, 'icon.ico')); } catch {}
   }
 
-  // 2) .ico -> PNG 最大サイズを抽出
+  // 2) .ico -> PNG 最大サイズを抽出（icojsはESMのため動的import）
   try {
     let pngBuffer = null;
     if (hasIco) {
-      const buf = fs.readFileSync(srcIco);
-      const images = await icojs.parse(buf);
-      if (Array.isArray(images) && images.length > 0) {
-        const best = images.slice().sort((a, b) => (b.width * b.height) - (a.width * a.height))[0];
-        pngBuffer = Buffer.from(best.buffer);
+      try {
+        const icojsMod = await import('icojs');
+        const icojs = icojsMod.default || icojsMod;
+        const buf = fs.readFileSync(srcIco);
+        const images = await icojs.parse(buf);
+        if (Array.isArray(images) && images.length > 0) {
+          const best = images.slice().sort((a, b) => (b.width * b.height) - (a.width * a.height))[0];
+          pngBuffer = Buffer.from(best.buffer);
+        }
+      } catch (e) {
+        console.log('icojsの読み込みに失敗しました。PNG生成をスキップします:', e && e.message ? e.message : e);
       }
     }
     if (!pngBuffer && hasPng) {
@@ -53,7 +54,7 @@ async function main() {
       if (icns) fs.writeFileSync(path.join(buildDir, 'icon.icns'), icns);
     }
   } catch (e) {
-    console.log('ICO->PNG/ICNS 変換をスキップ:', e?.message || e);
+    console.log('ICO->PNG/ICNS 変換をスキップ:', e && e.message ? e.message : e);
   }
 }
 
