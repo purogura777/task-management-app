@@ -38,8 +38,8 @@ function createFloatingWindow() {
     }
   } catch {}
   floatWin = new BrowserWindow({
-    width: 84,
-    height: 84,
+    width: 140,
+    height: 140,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -53,15 +53,17 @@ function createFloatingWindow() {
   floatWin.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(`
     <html><head><style>
       body { margin:0; overflow:hidden; background:transparent; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif; }
-      .panel { width:72px; height:72px; border-radius:18px; background:#0b1220; position:absolute; left:6px; top:6px; box-shadow:0 16px 36px rgba(0,0,0,.35), 0 0 32px rgba(20,184,166,.25); background-size:cover; background-position:center; -webkit-app-region: drag; }
-      /* 端の4pxはドラッグ、中央64pxはクリック領域 */
-      .content { position:absolute; width:64px; height:64px; left:4px; top:4px; -webkit-app-region: no-drag; cursor:pointer; border-radius:16px; }
-      .badge { position:absolute; right:-4px; top:-4px; min-width:18px; height:18px; border-radius:9px; background:#e11d48; color:#fff; font-size:12px; display:flex; align-items:center; justify-content:center; padding:0 4px; }
-      .list { position:absolute; left:84px; top:0; width:236px; max-height:260px; overflow:auto; background:rgba(17,24,39,.96); color:#e5e7eb; border-radius:10px; box-shadow:0 12px 28px rgba(0,0,0,.35); padding:8px; display:none; backdrop-filter: blur(8px); }
-      .item { padding:6px 8px; border-radius:8px; }
+      .panel { width:128px; height:128px; border-radius:28px; background:#0b1220; position:absolute; left:6px; top:6px; box-shadow:0 16px 36px rgba(0,0,0,.35), 0 0 32px rgba(20,184,166,.25); background-size:cover; background-position:center; -webkit-app-region: drag; }
+      /* 端の8pxはドラッグ、中央112pxはクリック領域 */
+      .content { position:absolute; width:112px; height:112px; left:8px; top:8px; -webkit-app-region: no-drag; cursor:pointer; border-radius:22px; }
+      .badge { position:absolute; right:0px; top:0px; min-width:22px; height:22px; border-radius:11px; background:#e11d48; color:#fff; font-size:12px; display:flex; align-items:center; justify-content:center; padding:0 7px; }
+      .list { position:absolute; left:140px; top:0; width:360px; max-height:420px; overflow:auto; background:rgba(17,24,39,.96); color:#e5e7eb; border-radius:12px; box-shadow:0 12px 28px rgba(0,0,0,.35); padding:12px; display:none; backdrop-filter: blur(8px); }
+      .item { padding:8px 10px; border-radius:10px; background:rgba(255,255,255,0.03); }
       .item + .item { margin-top:4px; }
+      .item .top { display:flex; align-items:center; justify-content:space-between; }
       .item .t { font-weight:700; font-size:12px; }
-      .item .b { font-size:12px; opacity:.8; }
+      .item .d { font-size:11px; opacity:.7; margin-left:8px; }
+      .item .b { font-size:12px; opacity:.85; margin-top:4px; }
     </style></head><body>
     <div class='panel' id='panel'>
       <div class='content' id='content'>
@@ -78,7 +80,12 @@ function createFloatingWindow() {
       let open = false;
       const render = () => {
         listEl.innerHTML = items.slice().reverse().map(function(x){
-          return "<div class='item'><div class='t'>" + (x.title||'通知') + "</div>" + (x.body?("<div class='b'>" + x.body + "</div>") : "") + "</div>";
+          var dt = new Date(x.ts||Date.now());
+          var time = dt.toLocaleString(undefined, { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' });
+          return "<div class='item'>"
+            + "<div class='top'><div class='t'>" + (x.title||'通知') + "</div><div class='d'>" + time + "</div></div>"
+            + (x.body?("<div class='b'>" + x.body + "</div>") : "")
+            + "</div>";
         }).join('');
       };
       content.addEventListener('click', ()=>{
@@ -103,7 +110,7 @@ function createFloatingWindow() {
   try {
     if (!saved || !saved.x || !saved.y) {
       const { width, height } = require('electron').screen.getPrimaryDisplay().workAreaSize;
-      floatWin.setPosition(Math.max(0, width - 100), Math.max(0, height - 120));
+      floatWin.setPosition(Math.max(0, width - 160), Math.max(0, height - 180));
     }
   } catch {}
   return floatWin;
@@ -255,13 +262,13 @@ ipcMain.on('float:pos', (_, pos) => {
 ipcMain.on('list:toggle', (_e, { open }) => {
   try {
     if (!floatWin) return;
-    const targetW = open ? 84 + 236 : 84;
+    const targetW = open ? 140 + 360 : 140;
     const [x, y] = floatWin.getPosition();
     // 画面外に出ないよう調整
     const { width: sw } = require('electron').screen.getPrimaryDisplay().workAreaSize;
     let nx = x;
     if (open && x + targetW > sw) nx = Math.max(0, sw - targetW - 4);
-    floatWin.setBounds({ x: nx, y, width: targetW, height: 84 });
+    floatWin.setBounds({ x: nx, y, width: targetW, height: 140 });
   } catch {}
 });
 
