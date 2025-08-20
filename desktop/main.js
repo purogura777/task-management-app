@@ -53,11 +53,14 @@ function createFloatingWindow() {
   floatWin.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(`
     <html><head><style>
       body { margin:0; overflow:hidden; background:transparent; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif; }
-      .panel { width:128px; height:128px; border-radius:28px; background:#0b1220; position:absolute; left:6px; top:6px; box-shadow:0 16px 36px rgba(0,0,0,.35), 0 0 32px rgba(20,184,166,.25); background-size:cover; background-position:center; -webkit-app-region: drag; }
+      .panel { width:128px; height:128px; border-radius:28px; background:#0b1220; position:absolute; left:6px; top:6px; box-shadow:0 16px 36px rgba(0,0,0,.35), 0 0 32px rgba(20,184,166,.25); background-size:cover; background-position:center; -webkit-app-region: drag; cursor: grab; }
+      .panel:active { cursor: grabbing; }
+      /* ドラッグ可能エッジを色で強調 */
+      .ring { position:absolute; inset:0; border-radius:28px; -webkit-app-region: drag; pointer-events:none; box-shadow: inset 0 0 0 6px rgba(14,165,233,.45), inset 0 0 24px rgba(14,165,233,.25); }
       /* 端の8pxはドラッグ、中央112pxはクリック領域 */
       .content { position:absolute; width:112px; height:112px; left:8px; top:8px; -webkit-app-region: no-drag; cursor:pointer; border-radius:22px; }
       .badge { position:absolute; right:0px; top:0px; min-width:22px; height:22px; border-radius:11px; background:#e11d48; color:#fff; font-size:12px; display:flex; align-items:center; justify-content:center; padding:0 7px; }
-      .list { position:absolute; left:140px; top:0; width:360px; max-height:420px; overflow:auto; background:rgba(17,24,39,.96); color:#e5e7eb; border-radius:12px; box-shadow:0 12px 28px rgba(0,0,0,.35); padding:12px; display:none; backdrop-filter: blur(8px); }
+      .list { position:absolute; left:140px; top:12px; width:360px; max-height:396px; overflow:auto; background:rgba(17,24,39,.96); color:#e5e7eb; border-radius:12px; box-shadow:0 12px 28px rgba(0,0,0,.35); padding:12px; display:none; backdrop-filter: blur(8px); }
       .item { padding:8px 10px; border-radius:10px; background:rgba(255,255,255,0.03); }
       .item + .item { margin-top:4px; }
       .item .top { display:flex; align-items:center; justify-content:space-between; }
@@ -66,6 +69,7 @@ function createFloatingWindow() {
       .item .b { font-size:12px; opacity:.85; margin-top:4px; }
     </style></head><body>
     <div class='panel' id='panel'>
+      <div class='ring'></div>
       <div class='content' id='content'>
         <div class='badge' id='badge' style='display:none'>0</div>
       </div>
@@ -94,7 +98,17 @@ function createFloatingWindow() {
         ipcRenderer.send('list:toggle', { open });
         if (open){ badge.innerText='0'; badge.style.display='none'; }
       });
-      ipcRenderer.on('notify', (_, payload)=>{ items.push({ title: payload.title, body: payload.body, ts: Date.now() }); if (items.length>50) items = items.slice(-50); render(); const cnt = Number(badge.innerText||'0')+1; badge.innerText=String(cnt); badge.style.display='flex'; new Notification(payload.title||'通知', { body: payload.body||'' }); });
+      ipcRenderer.on('notify', (_, payload)=>{ 
+        // done完了はバッジ対象外
+        if (payload && payload.status === 'done') return;
+        items.push({ title: payload.title, body: payload.body, ts: Date.now() }); 
+        if (items.length>50) items = items.slice(-50); 
+        render(); 
+        const cnt = Number(badge.innerText||'0')+1; 
+        badge.innerText=String(cnt); 
+        badge.style.display='flex'; 
+        new Notification(payload.title||'通知', { body: payload.body||'' }); 
+      });
       ipcRenderer.on('badge:clear', ()=>{ badge.innerText='0'; badge.style.display='none'; });
       ipcRenderer.on('icon:update', (_e, dataUrl)=>{ try{ document.getElementById('panel').style.backgroundImage = "url('" + dataUrl + "')"; }catch{} });
     </script>
@@ -263,12 +277,15 @@ ipcMain.on('list:toggle', (_e, { open }) => {
   try {
     if (!floatWin) return;
     const targetW = open ? 140 + 360 : 140;
+    const targetH = open ? 420 : 140;
     const [x, y] = floatWin.getPosition();
     // 画面外に出ないよう調整
-    const { width: sw } = require('electron').screen.getPrimaryDisplay().workAreaSize;
+    const { width: sw, height: sh } = require('electron').screen.getPrimaryDisplay().workAreaSize;
     let nx = x;
     if (open && x + targetW > sw) nx = Math.max(0, sw - targetW - 4);
-    floatWin.setBounds({ x: nx, y, width: targetW, height: 140 });
+    let ny = y;
+    if (open && y + targetH > sh) ny = Math.max(0, sh - targetH - 4);
+    floatWin.setBounds({ x: nx, y: ny, width: targetW, height: targetH });
   } catch {}
 });
 

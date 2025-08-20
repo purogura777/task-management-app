@@ -69,8 +69,8 @@ export const notify = (event: NotificationEvent, payload?: Partial<NotifyPayload
 		window.dispatchEvent(ev);
 	} catch {}
 
-	// ローカルDesktopブリッジ（Electron）にも送信
-	try { localDesktopNotify(title, body); } catch {}
+	// ローカルDesktopブリッジ（Electron）にも送信（完了は対象外にしたい場合にstatusを付与）
+	try { localDesktopNotify(title, body, { status: event === 'task_updated' && /完了|done/.test(String(body||'')) ? 'done' : undefined }); } catch {}
 
 	// サウンド（push有効時に鳴らす）
 	if (profile?.notifications?.push) playSound();

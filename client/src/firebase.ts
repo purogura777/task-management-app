@@ -321,7 +321,9 @@ export const updateTask = async (userId: string, taskId: string, updates: any) =
           task.id === taskId ? { ...task, ...updates } : task
         );
         localStorage.setItem(`tasks_${userId}`, JSON.stringify(updatedTasks));
-        notify('task_updated', { Title: 'タスクを更新', Body: updates?.title || '', TaskId: taskId });
+        if (updates?.status !== 'done') {
+          notify('task_updated', { Title: 'タスクを更新', Body: updates?.title || '', TaskId: taskId });
+        }
       }
       return;
     }
@@ -338,8 +340,10 @@ export const updateTask = async (userId: string, taskId: string, updates: any) =
         task.id === taskId ? { ...task, ...updates } : task
       );
       localStorage.setItem(`tasks_${userId}`, JSON.stringify(updatedTasks));
-      notify('task_updated', { Title: 'タスクを更新', Body: updates?.title || '', TaskId: taskId });
-      addCloudNotification('タスクを更新', updates?.title || '');
+      if (updates?.status !== 'done') {
+        notify('task_updated', { Title: 'タスクを更新', Body: updates?.title || '', TaskId: taskId });
+        addCloudNotification('タスクを更新', updates?.title || '');
+      }
     }
   } catch (error) {
     console.error('タスクの更新に失敗しました:', error);
@@ -351,7 +355,9 @@ export const updateTask = async (userId: string, taskId: string, updates: any) =
         task.id === taskId ? { ...task, ...updates } : task
       );
       localStorage.setItem(`tasks_${userId}`, JSON.stringify(updatedTasks));
-      notify('task_updated', { Title: 'タスクを更新', Body: updates?.title || '', TaskId: taskId });
+      if (updates?.status !== 'done') {
+        notify('task_updated', { Title: 'タスクを更新', Body: updates?.title || '', TaskId: taskId });
+      }
     }
     throw error;
   }

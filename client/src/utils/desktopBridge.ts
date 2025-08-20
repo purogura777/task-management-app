@@ -27,10 +27,10 @@ export const connectDesktopBridge = (url: string, token: string) => {
   } catch {}
 };
 
-export const desktopBridgeSendNotify = (title: string, body?: string) => {
+export const desktopBridgeSendNotify = (title: string, body?: string, extra?: any) => {
   try {
     if (socket && socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({ type: 'notify', title, body }));
+      socket.send(JSON.stringify({ type: 'notify', title, body, ...extra }));
     }
   } catch {}
 };
@@ -72,7 +72,7 @@ try {
   }
 } catch {}
 
-export const localDesktopNotify = (title: string, body?: string) => {
-  try { localSock?.send(JSON.stringify({ type: 'notify', title, body })); } catch {}
+export const localDesktopNotify = (title: string, body?: string, extra?: any) => {
+  try { localSock?.send(JSON.stringify({ type: 'notify', title, body, ...extra })); } catch {}
 };
 
