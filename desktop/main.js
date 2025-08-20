@@ -1,7 +1,8 @@
-import { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, Notification } from 'electron';
-import path from 'path';
-import Store from 'electron-store';
-import WebSocket, { WebSocketServer } from 'ws';
+const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, Notification } = require('electron');
+const path = require('path');
+const Store = require('electron-store');
+const WebSocket = require('ws');
+const { WebSocketServer } = require('ws');
 
 const store = new Store();
 let tray = null;
