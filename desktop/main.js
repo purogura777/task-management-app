@@ -1,7 +1,7 @@
 import { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, Notification } from 'electron';
 import path from 'path';
 import Store from 'electron-store';
-import { WebSocketServer } from 'ws';
+import WebSocket, { WebSocketServer } from 'ws';
 
 const store = new Store();
 let tray = null;
@@ -74,12 +74,14 @@ function createFloatingWindow() {
       const listEl = document.getElementById('list');
       let items = [];
       const render = () => {
-        listEl.innerHTML = items.slice().reverse().map(x=>`<div class='item'><div class='t'>${x.title||'通知'}</div>${x.body?`<div class='b'>${x.body}</div>`:''}</div>`).join('');
+        listEl.innerHTML = items.slice().reverse().map(function(x){
+          return "<div class='item'><div class='t'>" + (x.title||'通知') + "</div>" + (x.body?("<div class='b'>" + x.body + "</div>") : "") + "</div>";
+        }).join('');
       };
       content.addEventListener('click', ()=>{ const v = listEl.style.display==='block'; listEl.style.display = v ? 'none' : 'block'; if (!v){ badge.innerText='0'; badge.style.display='none'; }});
       ipcRenderer.on('notify', (_, payload)=>{ items.push({ title: payload.title, body: payload.body, ts: Date.now() }); if (items.length>50) items = items.slice(-50); render(); const cnt = Number(badge.innerText||'0')+1; badge.innerText=String(cnt); badge.style.display='flex'; new Notification(payload.title||'通知', { body: payload.body||'' }); });
       ipcRenderer.on('badge:clear', ()=>{ badge.innerText='0'; badge.style.display='none'; });
-      ipcRenderer.on('icon:update', (_e, dataUrl)=>{ try{ document.getElementById('panel').style.backgroundImage = `url('${dataUrl}')`; }catch{} });
+      ipcRenderer.on('icon:update', (_e, dataUrl)=>{ try{ document.getElementById('panel').style.backgroundImage = "url('" + dataUrl + "')"; }catch{} });
     </script>
     </body></html>
   `));
@@ -171,7 +173,7 @@ function connectRealtime() {
   if (uid) params.set('uid', String(uid));
   if ([...params.keys()].length > 0) url = `${base}${base.includes('?') ? '&' : '?'}${params.toString()}`;
   try {
-    webSocket = new (require('ws'))(url);
+    webSocket = new WebSocket(url);
     webSocket.on('open', () => console.log('WS connected'));
     webSocket.on('message', (msg) => {
       try {
