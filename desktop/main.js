@@ -50,6 +50,13 @@ function createFloatingWindow() {
       contextIsolation: false,
     },
   });
+  try {
+    floatWin.setAlwaysOnTop(true, 'screen-saver');
+    floatWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
+    floatWin.on('focus', () => { try { floatWin.setAlwaysOnTop(true, 'screen-saver'); } catch {} });
+    floatWin.on('blur', () => { try { floatWin.setAlwaysOnTop(true, 'screen-saver'); } catch {} });
+    floatWin.on('show', () => { try { floatWin.setAlwaysOnTop(true, 'screen-saver'); } catch {} });
+  } catch {}
   floatWin.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(`
     <html><head><style>
       body { margin:0; overflow:hidden; background:transparent; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif; }
@@ -60,7 +67,7 @@ function createFloatingWindow() {
       /* 端の8pxはドラッグ、中央112pxはクリック領域 */
       .content { position:absolute; width:112px; height:112px; left:8px; top:8px; -webkit-app-region: no-drag; cursor:pointer; border-radius:22px; }
       .badge { position:absolute; right:0px; top:0px; min-width:22px; height:22px; border-radius:11px; background:#e11d48; color:#fff; font-size:12px; display:flex; align-items:center; justify-content:center; padding:0 7px; }
-      .list { position:absolute; left:140px; top:12px; width:360px; max-height:396px; overflow:auto; background:rgba(17,24,39,.96); color:#e5e7eb; border-radius:12px; box-shadow:0 12px 28px rgba(0,0,0,.35); padding:12px; display:none; backdrop-filter: blur(8px); }
+      .list { position:absolute; left:140px; right:12px; top:12px; bottom:12px; width:auto; overflow:auto; background:rgba(17,24,39,.96); color:#e5e7eb; border-radius:12px; box-shadow:0 12px 28px rgba(0,0,0,.35); padding:12px; display:none; backdrop-filter: blur(8px); }
       .item { padding:8px 10px; border-radius:10px; background:rgba(255,255,255,0.03); }
       .item + .item { margin-top:4px; }
       .item .top { display:flex; align-items:center; justify-content:space-between; }
@@ -276,8 +283,8 @@ ipcMain.on('float:pos', (_, pos) => {
 ipcMain.on('list:toggle', (_e, { open }) => {
   try {
     if (!floatWin) return;
-    const targetW = open ? 140 + 360 : 140;
-    const targetH = open ? 420 : 140;
+    const targetW = open ? 520 : 140; // 右側パネル分も考慮して広く確保
+    const targetH = open ? 220 : 140; // 上下に余白を確保
     const [x, y] = floatWin.getPosition();
     // 画面外に出ないよう調整
     const { width: sw, height: sh } = require('electron').screen.getPrimaryDisplay().workAreaSize;
@@ -286,6 +293,7 @@ ipcMain.on('list:toggle', (_e, { open }) => {
     let ny = y;
     if (open && y + targetH > sh) ny = Math.max(0, sh - targetH - 4);
     floatWin.setBounds({ x: nx, y: ny, width: targetW, height: targetH });
+    try { floatWin.setAlwaysOnTop(true, 'screen-saver'); } catch {}
   } catch {}
 });
 
