@@ -54,9 +54,10 @@ function createFloatingWindow() {
     <html><head><style>
       body { margin:0; overflow:hidden; background:transparent; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif; }
       .panel { width:72px; height:72px; border-radius:18px; background:#0b1220; position:absolute; left:6px; top:6px; box-shadow:0 16px 36px rgba(0,0,0,.35), 0 0 32px rgba(20,184,166,.25); background-size:cover; background-position:center; -webkit-app-region: drag; }
-      .content { position:absolute; inset:0; -webkit-app-region: no-drag; cursor:pointer; }
+      /* 端の4pxはドラッグ、中央64pxはクリック領域 */
+      .content { position:absolute; width:64px; height:64px; left:4px; top:4px; -webkit-app-region: no-drag; cursor:pointer; border-radius:16px; }
       .badge { position:absolute; right:-4px; top:-4px; min-width:18px; height:18px; border-radius:9px; background:#e11d48; color:#fff; font-size:12px; display:flex; align-items:center; justify-content:center; padding:0 4px; }
-      .list { position:absolute; left:84px; top:0; width:220px; max-height:260px; overflow:auto; background:rgba(17,24,39,.92); color:#e5e7eb; border-radius:10px; box-shadow:0 12px 28px rgba(0,0,0,.35); padding:8px; display:none; }
+      .list { position:absolute; left:84px; top:0; width:236px; max-height:260px; overflow:auto; background:rgba(17,24,39,.96); color:#e5e7eb; border-radius:10px; box-shadow:0 12px 28px rgba(0,0,0,.35); padding:8px; display:none; backdrop-filter: blur(8px); }
       .item { padding:6px 8px; border-radius:8px; }
       .item + .item { margin-top:4px; }
       .item .t { font-weight:700; font-size:12px; }
@@ -74,12 +75,18 @@ function createFloatingWindow() {
       const badge = document.getElementById('badge');
       const listEl = document.getElementById('list');
       let items = [];
+      let open = false;
       const render = () => {
         listEl.innerHTML = items.slice().reverse().map(function(x){
           return "<div class='item'><div class='t'>" + (x.title||'通知') + "</div>" + (x.body?("<div class='b'>" + x.body + "</div>") : "") + "</div>";
         }).join('');
       };
-      content.addEventListener('click', ()=>{ const v = listEl.style.display==='block'; listEl.style.display = v ? 'none' : 'block'; if (!v){ badge.innerText='0'; badge.style.display='none'; }});
+      content.addEventListener('click', ()=>{
+        open = !open;
+        listEl.style.display = open ? 'block' : 'none';
+        ipcRenderer.send('list:toggle', { open });
+        if (open){ badge.innerText='0'; badge.style.display='none'; }
+      });
       ipcRenderer.on('notify', (_, payload)=>{ items.push({ title: payload.title, body: payload.body, ts: Date.now() }); if (items.length>50) items = items.slice(-50); render(); const cnt = Number(badge.innerText||'0')+1; badge.innerText=String(cnt); badge.style.display='flex'; new Notification(payload.title||'通知', { body: payload.body||'' }); });
       ipcRenderer.on('badge:clear', ()=>{ badge.innerText='0'; badge.style.display='none'; });
       ipcRenderer.on('icon:update', (_e, dataUrl)=>{ try{ document.getElementById('panel').style.backgroundImage = "url('" + dataUrl + "')"; }catch{} });
@@ -242,6 +249,20 @@ app.whenReady().then(() => {
 
 ipcMain.on('float:pos', (_, pos) => {
   store.set('float_pos', pos);
+});
+
+// 一覧展開に合わせてウィンドウ幅を可変（84px → 84+236px）
+ipcMain.on('list:toggle', (_e, { open }) => {
+  try {
+    if (!floatWin) return;
+    const targetW = open ? 84 + 236 : 84;
+    const [x, y] = floatWin.getPosition();
+    // 画面外に出ないよう調整
+    const { width: sw } = require('electron').screen.getPrimaryDisplay().workAreaSize;
+    let nx = x;
+    if (open && x + targetW > sw) nx = Math.max(0, sw - targetW - 4);
+    floatWin.setBounds({ x: nx, y, width: targetW, height: 84 });
+  } catch {}
 });
 
 app.on('window-all-closed', (e) => {
