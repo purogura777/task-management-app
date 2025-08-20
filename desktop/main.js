@@ -92,6 +92,13 @@ function createFloatingWindow() {
     floatWin.setPosition(saved.x, saved.y);
   }
   try { floatWin.on('move', () => { const [x,y] = floatWin.getPosition(); store.set('float_pos', { x, y }); }); } catch {}
+  // 保存された位置が無い場合は画面右下に移動
+  try {
+    if (!saved || !saved.x || !saved.y) {
+      const { width, height } = require('electron').screen.getPrimaryDisplay().workAreaSize;
+      floatWin.setPosition(Math.max(0, width - 100), Math.max(0, height - 120));
+    }
+  } catch {}
   return floatWin;
 }
 
@@ -115,26 +122,34 @@ function createTray() {
     image = nativeImage.createEmpty();
   }
   tray = new Tray(image);
-  const contextMenu = Menu.buildFromTemplate([
-    { label: 'ログイン', click: () => openAuthWindow() },
-    { label: 'ログアウト', click: () => doLogout() },
-    { type: 'separator' },
-    {
-      label: '自動起動を有効にする',
-      type: 'checkbox',
-      checked: autoStartEnabled,
-      click: (item) => {
-        autoStartEnabled = item.checked;
-        app.setLoginItemSettings({ openAtLogin: autoStartEnabled });
-      }
-    },
-    { type: 'separator' },
-    { label: 'バッジをクリア', click: () => floatWin && floatWin.webContents.send('badge:clear') },
-    { type: 'separator' },
-    { label: '終了', click: () => app.quit() },
-  ]);
-  tray.setToolTip('TaskManager Desktop');
-  tray.setContextMenu(contextMenu);
+  const updateMenu = () => {
+    const paired = !!store.get('pair_uid');
+    const contextMenu = Menu.buildFromTemplate([
+      { label: `状態: ${paired ? '連携中' : '未連携'}`, enabled: false },
+      { type: 'separator' },
+      { label: 'ログイン', click: () => openAuthWindow() },
+      { label: 'ログアウト', click: () => doLogout() },
+      { type: 'separator' },
+      {
+        label: '自動起動を有効にする',
+        type: 'checkbox',
+        checked: autoStartEnabled,
+        click: (item) => {
+          autoStartEnabled = item.checked;
+          app.setLoginItemSettings({ openAtLogin: autoStartEnabled });
+        }
+      },
+      { type: 'separator' },
+      { label: 'バッジをクリア', click: () => floatWin && floatWin.webContents.send('badge:clear') },
+      { type: 'separator' },
+      { label: '終了', click: () => app.quit() },
+    ]);
+    tray.setContextMenu(contextMenu);
+    tray.setToolTip(`TaskManager Desktop${paired ? '（連携中）' : ''}`);
+  };
+  updateMenu();
+  // メニュー更新関数を他から呼べるように保存
+  tray.__updateMenu = updateMenu;
   tray.on('click', () => { if (!floatWin) createFloatingWindow(); else floatWin.show(); });
 }
 
@@ -275,6 +290,7 @@ function handleDeepLink(urlStr) {
         if (webSocket && webSocket.close) try { webSocket.close(); } catch {}
         setTimeout(connectRealtime, 200);
         if (floatWin) floatWin.webContents.send('notify', { title: 'デスクトップ連携', body: 'ペアリングしました' });
+        try { if (tray && tray.__updateMenu) tray.__updateMenu(); } catch {}
       }
     } else if (u.host === 'bootstrap') {
       // 1本のリンクでFirebase設定とUIDをまとめてセット
@@ -310,6 +326,7 @@ function handleDeepLink(urlStr) {
       if (webSocket && webSocket.close) try { webSocket.close(); } catch {}
       setTimeout(connectRealtime, 200);
       if (cfg.apiKey && uid) if (floatWin) floatWin.webContents.send('notify', { title: 'セットアップ完了', body: '設定とペアリングを保存しました' });
+      try { if (tray && tray.__updateMenu) tray.__updateMenu(); } catch {}
       // ブートストラップ完了後は案内ウィンドウを閉じて購読を開始
       if (authWin) { try { authWin.close(); } catch {} authWin = null; }
       if (cfg && uid) startCloudListener(uid, cfg);

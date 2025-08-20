@@ -460,6 +460,8 @@ const Settings: React.FC = () => {
                   const parts = new URLSearchParams({ apiKey: cfg.apiKey, authDomain: cfg.authDomain, projectId: cfg.projectId, uid, icon });
                   const url = `taskapp://bootstrap?${parts.toString()}`;
                   try { window.location.href = url; toast.success('デスクトップへ設定を送信しました'); } catch { toast.error('起動に失敗しました'); }
+                  // ローカルブリッジ接続を促進
+                  try { setTimeout(() => { (window as any).dispatchEvent(new Event('connectLocalDesktopBridge')); }, 500); } catch {}
                 }}
               >デスクトップを自動セットアップ</Button>
               <Button

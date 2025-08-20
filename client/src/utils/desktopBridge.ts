@@ -63,6 +63,15 @@ export const connectLocalDesktopBridge = () => {
   tryConnect();
 };
 
+// Webの設定画面などから再接続トリガーを飛ばせるようイベント待受
+try {
+  if (typeof window !== 'undefined') {
+    window.addEventListener('connectLocalDesktopBridge', () => {
+      try { connectLocalDesktopBridge(); } catch {}
+    });
+  }
+} catch {}
+
 export const localDesktopNotify = (title: string, body?: string) => {
   try { localSock?.send(JSON.stringify({ type: 'notify', title, body })); } catch {}
 };
