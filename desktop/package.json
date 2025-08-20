@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "main": "main.js",
-  "type": "module",
+  "type": "commonjs",
   "description": "Task Manager Desktop Helper (tray + floating widget)",
   "author": "purogura777",
   "repository": {
@@ -44,10 +44,16 @@
     "publish": [
       { "provider": "github", "owner": "purogura777", "repo": "task-management-app" }
     ],
+    "nsis": {
+      "include": "build/installer.nsh"
+    },
     "win": {
-      "target": ["nsis"],
+      "target": ["nsis", "portable"],
       "icon": "../ChatGPT-Image-2025年8月19日-19_55_16.ico",
       "artifactName": "TaskManagerDesktop.Setup.${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "TaskManagerDesktop.Portable.${version}.${ext}"
     },
     "mac": {
       "target": ["dmg"],
