@@ -61,6 +61,7 @@ import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { useAuth } from '../contexts/AuthContext';
 import { setupUnifiedTasksListener, updateTask, deleteTask, saveTask } from '../firebase';
+import { decryptData } from '../utils/security';
 import TaskForm from './TaskForm';
 import toast from 'react-hot-toast';
 
@@ -121,7 +122,10 @@ const KanbanBoard: React.FC = () => {
       } else if (project) {
         next = next.filter((t: any) => t.project === project || (!t.project && project === '個人プロジェクト'));
       }
-      setTasks(next);
+      // 説明を復号
+      try {
+        setTasks(next.map((t: any) => ({ ...t, description: t.description ? decryptData(t.description) : '' })));
+      } catch { setTasks(next); }
       setIsLoading(false);
     });
 
@@ -148,7 +152,7 @@ const KanbanBoard: React.FC = () => {
         const filtered = type === 'workspace'
           ? all.filter((t: any) => t.workspace === value || (!t.workspace && value === '個人プロジェクト'))
           : all.filter((t: any) => t.project === value || (!t.project && value === '個人プロジェクト'));
-        setTasks(filtered);
+        try { setTasks(filtered.map((t: any) => ({ ...t, description: t.description ? decryptData(t.description) : '' }))); } catch { setTasks(filtered); }
       }
     };
 
@@ -161,9 +165,11 @@ const KanbanBoard: React.FC = () => {
     if (raw) {
       const all = JSON.parse(raw);
       if (workspace) {
-        setTasks(all.filter((t: any) => t.workspace === workspace || (!t.workspace && workspace === '個人プロジェクト')));
+        const filtered = all.filter((t: any) => t.workspace === workspace || (!t.workspace && workspace === '個人プロジェクト'));
+        try { setTasks(filtered.map((t: any) => ({ ...t, description: t.description ? decryptData(t.description) : '' }))); } catch { setTasks(filtered); }
       } else if (project) {
-        setTasks(all.filter((t: any) => t.project === project || (!t.project && project === '個人プロジェクト')));
+        const filtered = all.filter((t: any) => t.project === project || (!t.project && project === '個人プロジェクト'));
+        try { setTasks(filtered.map((t: any) => ({ ...t, description: t.description ? decryptData(t.description) : '' }))); } catch { setTasks(filtered); }
       }
     }
     

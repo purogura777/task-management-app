@@ -18,25 +18,37 @@ async function main() {
   const desktopDir = path.resolve(__dirname, '..');
   const buildDir = path.join(desktopDir, 'build');
   const srcIco = path.resolve(projectRoot, 'ChatGPT-Image-2025年8月19日-19_55_16.ico');
+  const srcPng = path.resolve(projectRoot, 'client', 'public', 'app-icon.png');
 
-  if (!fs.existsSync(srcIco)) {
-    console.log('ICOファイルが見つかりません:', srcIco);
+  const hasIco = fs.existsSync(srcIco);
+  const hasPng = fs.existsSync(srcPng);
+  if (!hasIco && !hasPng) {
+    console.log('アイコンソースが見つかりません。以下のいずれかを配置してください:\n -', srcIco, '\n -', srcPng);
     return;
   }
   if (!fs.existsSync(buildDir)) fs.mkdirSync(buildDir, { recursive: true });
 
-  // 1) .ico をそのままコピー
-  fs.copyFileSync(srcIco, path.join(buildDir, 'icon.ico'));
+  // 1) .ico をそのままコピー（あれば）
+  if (hasIco) {
+    try { fs.copyFileSync(srcIco, path.join(buildDir, 'icon.ico')); } catch {}
+  }
 
   // 2) .ico -> PNG 最大サイズを抽出
   try {
-    const buf = fs.readFileSync(srcIco);
-    const images = await icojs.parse(buf);
-    if (Array.isArray(images) && images.length > 0) {
-      const best = images.slice().sort((a, b) => (b.width * b.height) - (a.width * a.height))[0];
-      const pngBuffer = Buffer.from(best.buffer);
+    let pngBuffer = null;
+    if (hasIco) {
+      const buf = fs.readFileSync(srcIco);
+      const images = await icojs.parse(buf);
+      if (Array.isArray(images) && images.length > 0) {
+        const best = images.slice().sort((a, b) => (b.width * b.height) - (a.width * a.height))[0];
+        pngBuffer = Buffer.from(best.buffer);
+      }
+    }
+    if (!pngBuffer && hasPng) {
+      pngBuffer = fs.readFileSync(srcPng);
+    }
+    if (pngBuffer) {
       fs.writeFileSync(path.join(buildDir, 'icon.png'), pngBuffer);
-      // 3) PNG -> ICNS 生成（mac用）
       const icns = png2icons.createICNS(pngBuffer, png2icons.BILINEAR, 0, false);
       if (icns) fs.writeFileSync(path.join(buildDir, 'icon.icns'), icns);
     }

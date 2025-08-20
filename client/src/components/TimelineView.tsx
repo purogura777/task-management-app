@@ -43,6 +43,7 @@ import { format, addDays, differenceInDays, isAfter, isBefore, startOfDay } from
 import { ja } from 'date-fns/locale';
 import { useAuth } from '../contexts/AuthContext';
 import { setupUnifiedTasksListener, saveTask, updateTask, deleteTask } from '../firebase';
+import { decryptData } from '../utils/security';
 
 interface Task {
   id: string;
@@ -81,6 +82,7 @@ const TimelineView: React.FC = () => {
       // 開始日と終了日を設定（デモ用）
       const tasksWithDates = next.map((task: Task, index: number) => ({
         ...task,
+        description: (task as any).description ? decryptData((task as any).description as any) : '',
         startDate: task.startDate || format(addDays(new Date(), index * 2), 'yyyy-MM-dd'),
         endDate: task.endDate || format(addDays(new Date(), index * 2 + 1), 'yyyy-MM-dd'),
       }));
@@ -110,6 +112,7 @@ const TimelineView: React.FC = () => {
           : all.filter((t: any) => t.project === value || (!t.project && value === '個人プロジェクト'));
         const tasksWithDates = filtered.map((task: Task, index: number) => ({
           ...task,
+          description: (task as any).description ? decryptData((task as any).description as any) : '',
           startDate: task.startDate || format(addDays(new Date(), index * 2), 'yyyy-MM-dd'),
           endDate: task.endDate || format(addDays(new Date(), index * 2 + 1), 'yyyy-MM-dd'),
         }));
@@ -133,6 +136,7 @@ const TimelineView: React.FC = () => {
       }
       const tasksWithDates = filtered.map((task: Task, index: number) => ({
         ...task,
+        description: (task as any).description ? decryptData((task as any).description as any) : '',
         startDate: task.startDate || format(addDays(new Date(), index * 2), 'yyyy-MM-dd'),
         endDate: task.endDate || format(addDays(new Date(), index * 2 + 1), 'yyyy-MM-dd'),
       }));

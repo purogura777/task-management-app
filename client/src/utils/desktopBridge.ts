@@ -38,15 +38,29 @@ export const desktopBridgeSendNotify = (title: string, body?: string) => {
 // ローカルブリッジ（Electronが開く127.0.0.1:port）へもフォールバック接続
 let localSock: WebSocket | null = null;
 export const connectLocalDesktopBridge = () => {
-  try {
-    const port = Number(localStorage.getItem('desktop_local_port') || '17345');
-    const ws = new WebSocket(`ws://127.0.0.1:${port}`);
-    localSock = ws;
-    ws.onopen = () => {};
-    ws.onclose = () => {
-      setTimeout(connectLocalDesktopBridge, 3000);
-    };
-  } catch {}
+  const tryPorts = Array.from({ length: 12 }, (_, i) => 17345 + i); // 17345-17356
+  let index = 0;
+  const tryConnect = () => {
+    try {
+      const p = tryPorts[index % tryPorts.length];
+      const ws = new WebSocket(`ws://127.0.0.1:${p}`);
+      localSock = ws;
+      ws.onopen = () => {
+        try { localStorage.setItem('desktop_local_port', String(p)); } catch {}
+      };
+      ws.onclose = () => {
+        index += 1;
+        setTimeout(tryConnect, 1500);
+      };
+      ws.onerror = () => {
+        try { ws.close(); } catch {}
+      };
+    } catch {
+      index += 1;
+      setTimeout(tryConnect, 1500);
+    }
+  };
+  tryConnect();
 };
 
 export const localDesktopNotify = (title: string, body?: string) => {

@@ -1,5 +1,6 @@
 // 通知ユーティリティ（メール/SMSはプレースホルダー、プッシュ/サウンド/トーストを実装）
 import toast from 'react-hot-toast';
+import { localDesktopNotify } from './desktopBridge';
 
 type NotificationChannel = 'push' | 'sound' | 'toast';
 type NotificationEvent = 'task_created' | 'task_updated' | 'task_deleted' | 'task_due_soon';
@@ -67,6 +68,9 @@ export const notify = (event: NotificationEvent, payload?: Partial<NotifyPayload
 		const ev = new CustomEvent('appNotify', { detail: { title, body, event } });
 		window.dispatchEvent(ev);
 	} catch {}
+
+	// ローカルDesktopブリッジ（Electron）にも送信
+	try { localDesktopNotify(title, body); } catch {}
 
 	// サウンド（push有効時に鳴らす）
 	if (profile?.notifications?.push) playSound();

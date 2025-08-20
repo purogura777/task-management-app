@@ -52,6 +52,7 @@ import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { useAuth } from '../contexts/AuthContext';
 import { setupUnifiedTasksListener, saveTask, updateTask, deleteTask } from '../firebase';
+import { decryptData } from '../utils/security';
 import toast from 'react-hot-toast';
 import TaskForm from './TaskForm';
 
@@ -120,7 +121,7 @@ const Dashboard: React.FC = () => {
       } else if (project) {
         next = next.filter((t: any) => t.project === project || (!t.project && project === '個人プロジェクト'));
       }
-      setTasks(next);
+      try { setTasks(next.map((t: any) => ({ ...t, description: t.description ? decryptData(t.description) : '' }))); } catch { setTasks(next); }
       setLoading(false);
     });
 

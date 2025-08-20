@@ -34,7 +34,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
 import { saveTask, updateTask } from '../firebase';
-import { encryptData, sanitizeInput } from '../utils/security';
+import { encryptData, sanitizeInput, decryptData } from '../utils/security';
 
 interface Task {
   id: string;
@@ -75,7 +75,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ open, onClose, editingTask }) => {
     if (editingTask) {
       setFormData({
         title: editingTask.title,
-        description: editingTask.description,
+        description: decryptData(editingTask.description || ''),
         status: editingTask.status,
         priority: editingTask.priority,
       });

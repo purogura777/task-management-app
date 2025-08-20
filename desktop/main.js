@@ -51,22 +51,35 @@ function createFloatingWindow() {
   });
   floatWin.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(`
     <html><head><style>
-      body { margin:0; overflow:hidden; background:transparent; }
-      .panel { width:72px; height:72px; border-radius:16px; background:linear-gradient(135deg,#14b8a6,#0ea5e9); box-shadow:0 14px 28px rgba(14,165,233,.35); position:absolute; left:6px; top:6px; cursor:grab; display:flex; align-items:center; justify-content:center; color:#fff; font-family:sans-serif; }
+      body { margin:0; overflow:hidden; background:transparent; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif; }
+      .panel { width:72px; height:72px; border-radius:18px; background:#0b1220; position:absolute; left:6px; top:6px; box-shadow:0 16px 36px rgba(0,0,0,.35), 0 0 32px rgba(20,184,166,.25); background-image:url('${iconDataUrl}'); background-size:cover; background-position:center; -webkit-app-region: drag; }
+      .content { position:absolute; inset:0; -webkit-app-region: no-drag; cursor:pointer; }
       .badge { position:absolute; right:-4px; top:-4px; min-width:18px; height:18px; border-radius:9px; background:#e11d48; color:#fff; font-size:12px; display:flex; align-items:center; justify-content:center; padding:0 4px; }
+      .list { position:absolute; left:84px; top:0; width:220px; max-height:260px; overflow:auto; background:rgba(17,24,39,.92); color:#e5e7eb; border-radius:10px; box-shadow:0 12px 28px rgba(0,0,0,.35); padding:8px; display:none; }
+      .item { padding:6px 8px; border-radius:8px; }
+      .item + .item { margin-top:4px; }
+      .item .t { font-weight:700; font-size:12px; }
+      .item .b { font-size:12px; opacity:.8; }
     </style></head><body>
-    <div class='panel' id='panel'><img id='icon' src='${iconDataUrl}' alt='icon' style='width:28px;height:28px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,.25)'/><div class='badge' id='badge' style='display:none'>0</div></div>
+    <div class='panel' id='panel'>
+      <div class='content' id='content'>
+        <div class='badge' id='badge' style='display:none'>0</div>
+      </div>
+      <div class='list' id='list'></div>
+    </div>
     <script>
-      const { ipcRenderer, remote } = require('electron');
-      const panel = document.getElementById('panel');
+      const { ipcRenderer, shell } = require('electron');
+      const content = document.getElementById('content');
       const badge = document.getElementById('badge');
-      let dragging=false; let sx=0, sy=0;
-      function setPos(x,y){ bx=x; by=y; window.moveTo(x,y); }
-      window.addEventListener('mousedown', (e)=>{ dragging=true; sx=e.screenX; sy=e.screenY; document.body.style.cursor='grabbing'; });
-      window.addEventListener('mouseup', ()=>{ dragging=false; document.body.style.cursor=''; ipcRenderer.send('float:pos', {x:window.screenX, y:window.screenY}); });
-      window.addEventListener('mousemove', (e)=>{ if(!dragging) return; const dx=e.screenX-sx; const dy=e.screenY-sy; sx=e.screenX; sy=e.screenY; window.moveTo(window.screenX+dx, window.screenY+dy); });
-      ipcRenderer.on('notify', (_, payload)=>{ const cnt = Number(badge.innerText||'0')+1; badge.innerText=String(cnt); badge.style.display='flex'; new Notification(payload.title||'通知', { body: payload.body||'' }); });
+      const listEl = document.getElementById('list');
+      let items = [];
+      const render = () => {
+        listEl.innerHTML = items.slice().reverse().map(x=>`<div class='item'><div class='t'>${x.title||'通知'}</div>${x.body?`<div class='b'>${x.body}</div>`:''}</div>`).join('');
+      };
+      content.addEventListener('click', ()=>{ const v = listEl.style.display==='block'; listEl.style.display = v ? 'none' : 'block'; if (!v){ badge.innerText='0'; badge.style.display='none'; }});
+      ipcRenderer.on('notify', (_, payload)=>{ items.push({ title: payload.title, body: payload.body, ts: Date.now() }); if (items.length>50) items = items.slice(-50); render(); const cnt = Number(badge.innerText||'0')+1; badge.innerText=String(cnt); badge.style.display='flex'; new Notification(payload.title||'通知', { body: payload.body||'' }); });
       ipcRenderer.on('badge:clear', ()=>{ badge.innerText='0'; badge.style.display='none'; });
+      ipcRenderer.on('icon:update', (_e, dataUrl)=>{ try{ document.getElementById('panel').style.backgroundImage = `url('${dataUrl}')`; }catch{} });
     </script>
     </body></html>
   `));
@@ -74,6 +87,7 @@ function createFloatingWindow() {
   if (saved && saved.x && saved.y) {
     floatWin.setPosition(saved.x, saved.y);
   }
+  try { floatWin.on('move', () => { const [x,y] = floatWin.getPosition(); store.set('float_pos', { x, y }); }); } catch {}
   return floatWin;
 }
 
@@ -270,6 +284,25 @@ function handleDeepLink(urlStr) {
       }
       const uid = u.searchParams.get('uid');
       if (uid) store.set('pair_uid', uid);
+      // アイコンURLを受け取ったら取り込み
+      const iconUrl = u.searchParams.get('icon');
+      (async () => {
+        try {
+          if (iconUrl) {
+            const res = await fetch(iconUrl);
+            if (res.ok) {
+              const ab = await res.arrayBuffer();
+              const buf = Buffer.from(ab);
+              // 拡張子からMIMEを推定
+              const mime = iconUrl.toLowerCase().endsWith('.png') ? 'image/png' : iconUrl.toLowerCase().endsWith('.jpg') || iconUrl.toLowerCase().endsWith('.jpeg') ? 'image/jpeg' : 'image/png';
+              const dataUrl = `data:${mime};base64,${buf.toString('base64')}`;
+              store.set('icon_data', dataUrl);
+              if (floatWin) try { floatWin.webContents.send('icon:update', dataUrl); } catch {}
+              if (tray) try { tray.setImage(nativeImage.createFromDataURL(dataUrl)); } catch {}
+            }
+          }
+        } catch {}
+      })();
       if (webSocket && webSocket.close) try { webSocket.close(); } catch {}
       setTimeout(connectRealtime, 200);
       if (cfg.apiKey && uid) if (floatWin) floatWin.webContents.send('notify', { title: 'セットアップ完了', body: '設定とペアリングを保存しました' });
@@ -286,7 +319,7 @@ function openAuthWindow() {
   if (authWin) { authWin.focus(); return; }
   authWin = new BrowserWindow({
     width: 420,
-    height: 240,
+    height: 280,
     resizable: false,
     alwaysOnTop: true,
     webPreferences: { nodeIntegration: true, contextIsolation: false },
@@ -298,6 +331,12 @@ function openAuthWindow() {
     <h3>デスクトップ連携の自動セットアップ</h3>
     <p>Webの「設定 > デスクトップ連携」で「デスクトップを自動セットアップ」をクリックしてください。<br/>
     受信した設定を保存し、通知の購読を開始します。</p>
+    <p><button id='openWeb' style='padding:8px 12px;border-radius:8px;border:1px solid #ccc;cursor:pointer'>Webの設定画面を開く</button></p>
+    <script>
+      const { shell } = require('electron');
+      const url = process.env.WEB_APP_URL || 'https://task-management-app.vercel.app/settings';
+      document.getElementById('openWeb').addEventListener('click', ()=> shell.openExternal(url));
+    </script>
     <p style='color:#666'>この画面は自動で閉じます。</p>
     </body></html>
   `));
