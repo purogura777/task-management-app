@@ -52,7 +52,7 @@ function createFloatingWindow() {
   floatWin.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(`
     <html><head><style>
       body { margin:0; overflow:hidden; background:transparent; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif; }
-      .panel { width:72px; height:72px; border-radius:18px; background:#0b1220; position:absolute; left:6px; top:6px; box-shadow:0 16px 36px rgba(0,0,0,.35), 0 0 32px rgba(20,184,166,.25); background-image:url('${iconDataUrl}'); background-size:cover; background-position:center; -webkit-app-region: drag; }
+      .panel { width:72px; height:72px; border-radius:18px; background:#0b1220; position:absolute; left:6px; top:6px; box-shadow:0 16px 36px rgba(0,0,0,.35), 0 0 32px rgba(20,184,166,.25); background-size:cover; background-position:center; -webkit-app-region: drag; }
       .content { position:absolute; inset:0; -webkit-app-region: no-drag; cursor:pointer; }
       .badge { position:absolute; right:-4px; top:-4px; min-width:18px; height:18px; border-radius:9px; background:#e11d48; color:#fff; font-size:12px; display:flex; align-items:center; justify-content:center; padding:0 4px; }
       .list { position:absolute; left:84px; top:0; width:220px; max-height:260px; overflow:auto; background:rgba(17,24,39,.92); color:#e5e7eb; border-radius:10px; box-shadow:0 12px 28px rgba(0,0,0,.35); padding:8px; display:none; }
@@ -85,6 +85,7 @@ function createFloatingWindow() {
     </script>
     </body></html>
   `));
+  try { floatWin.webContents.once('did-finish-load', () => { try { floatWin.webContents.send('icon:update', iconDataUrl); } catch {} }); } catch {}
   const saved = store.get('float_pos');
   if (saved && saved.x && saved.y) {
     floatWin.setPosition(saved.x, saved.y);
