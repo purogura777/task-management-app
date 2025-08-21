@@ -14,6 +14,7 @@ let localPort = 17345;
 let authWin = null;
 let cloudWin = null;
 let autoStartEnabled = true;
+let floatHidden = false;
 let cachedIconData = null;
 
 const isWindows = process.platform === 'win32';
@@ -62,12 +63,12 @@ function createFloatingWindow() {
       body { margin:0; overflow:hidden; background:transparent; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif; }
       .panel { width:128px; height:128px; border-radius:28px; background:#0b1220; position:absolute; left:6px; top:6px; box-shadow:0 16px 36px rgba(0,0,0,.35), 0 0 32px rgba(20,184,166,.25); background-size:cover; background-position:center; -webkit-app-region: drag; cursor: grab; }
       .panel:active { cursor: grabbing; }
-      /* ドラッグ可能エッジを色で強調 */
-      .ring { position:absolute; inset:0; border-radius:28px; -webkit-app-region: drag; pointer-events:none; box-shadow: inset 0 0 0 6px rgba(14,165,233,.45), inset 0 0 24px rgba(14,165,233,.25); }
-      /* 端の8pxはドラッグ、中央112pxはクリック領域 */
-      .content { position:absolute; width:112px; height:112px; left:8px; top:8px; -webkit-app-region: no-drag; cursor:pointer; border-radius:22px; }
+      /* ドラッグ可能エッジを色で強調（太めのリング） */
+      .ring { position:absolute; inset:0; border-radius:28px; -webkit-app-region: drag; pointer-events:none; box-shadow: inset 0 0 0 10px rgba(14,165,233,.55), inset 0 0 36px rgba(14,165,233,.30); }
+      /* 端の16pxはドラッグ、中央96pxはクリック領域（広めのドラッグ） */
+      .content { position:absolute; width:96px; height:96px; left:16px; top:16px; -webkit-app-region: no-drag; cursor:pointer; border-radius:20px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
       .badge { position:absolute; right:0px; top:0px; min-width:22px; height:22px; border-radius:11px; background:#e11d48; color:#fff; font-size:12px; display:flex; align-items:center; justify-content:center; padding:0 7px; }
-      .list { position:absolute; left:140px; right:12px; top:12px; bottom:12px; width:auto; overflow:auto; background:rgba(17,24,39,.96); color:#e5e7eb; border-radius:12px; box-shadow:0 12px 28px rgba(0,0,0,.35); padding:12px; display:none; backdrop-filter: blur(8px); }
+      .list { position:absolute; left:156px; right:12px; top:12px; bottom:12px; width:auto; overflow:auto; background:rgba(17,24,39,.96); color:#e5e7eb; border-radius:12px; box-shadow:0 12px 28px rgba(0,0,0,.35); padding:12px; display:none; backdrop-filter: blur(8px); }
       .item { padding:8px 10px; border-radius:10px; background:rgba(255,255,255,0.03); }
       .item + .item { margin-top:4px; }
       .item .top { display:flex; align-items:center; justify-content:space-between; }
@@ -80,8 +81,8 @@ function createFloatingWindow() {
       <div class='content' id='content'>
         <div class='badge' id='badge' style='display:none'>0</div>
       </div>
-      <div class='list' id='list'></div>
     </div>
+    <div class='list' id='list'></div>
     <script>
       const { ipcRenderer, shell } = require('electron');
       const content = document.getElementById('content');
@@ -105,6 +106,8 @@ function createFloatingWindow() {
         ipcRenderer.send('list:toggle', { open });
         if (open){ badge.innerText='0'; badge.style.display='none'; }
       });
+      // 右クリックでトレイメニューを開く
+      window.addEventListener('contextmenu', (e)=>{ e.preventDefault(); ipcRenderer.send('open:menu'); });
       ipcRenderer.on('notify', (_, payload)=>{ 
         // done完了はバッジ対象外
         if (payload && payload.status === 'done') return;
@@ -161,6 +164,16 @@ function createTray() {
     const paired = !!store.get('pair_uid');
     const contextMenu = Menu.buildFromTemplate([
       { label: `状態: ${paired ? '連携中' : '未連携'}`, enabled: false },
+      { type: 'separator' },
+      { label: floatHidden ? 'アイコンを表示' : 'アイコンを非表示', click: () => {
+          try {
+            floatHidden = !floatHidden;
+            if (floatHidden) { if (floatWin) floatWin.hide(); }
+            else { if (!floatWin) createFloatingWindow(); floatWin.show(); }
+            updateMenu();
+          } catch {}
+        }
+      },
       { type: 'separator' },
       { label: 'ログイン', click: () => openAuthWindow() },
       { label: 'ログアウト', click: () => doLogout() },
@@ -278,13 +291,17 @@ app.whenReady().then(() => {
 ipcMain.on('float:pos', (_, pos) => {
   store.set('float_pos', pos);
 });
+// フローティング右クリックでトレイメニューを開く
+ipcMain.on('open:menu', () => {
+  try { if (tray) tray.popUpContextMenu(); } catch {}
+});
 
 // 一覧展開に合わせてウィンドウ幅を可変（84px → 84+236px）
 ipcMain.on('list:toggle', (_e, { open }) => {
   try {
     if (!floatWin) return;
-    const targetW = open ? 520 : 140; // 右側パネル分も考慮して広く確保
-    const targetH = open ? 220 : 140; // 上下に余白を確保
+    const targetW = open ? 620 : 140; // 右側パネル分をさらに広く
+    const targetH = open ? 300 : 140; // 高さも拡張
     const [x, y] = floatWin.getPosition();
     // 画面外に出ないよう調整
     const { width: sw, height: sh } = require('electron').screen.getPrimaryDisplay().workAreaSize;
