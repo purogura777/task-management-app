@@ -19,6 +19,40 @@ let cachedIconData = null;
 
 const isWindows = process.platform === 'win32';
 
+function buildContextMenuTemplate() {
+  const paired = !!store.get('pair_uid');
+  return [
+    { label: `状態: ${paired ? '連携中' : '未連携'}`, enabled: false },
+    { type: 'separator' },
+    { label: floatHidden ? 'アイコンを表示' : 'アイコンを非表示', click: () => {
+        try {
+          floatHidden = !floatHidden;
+          if (floatHidden) { if (floatWin) floatWin.hide(); }
+          else { if (!floatWin) createFloatingWindow(); floatWin.show(); }
+          try { if (tray && tray.__updateMenu) tray.__updateMenu(); } catch {}
+        } catch {}
+      }
+    },
+    { type: 'separator' },
+    { label: 'ログイン', click: () => openAuthWindow() },
+    { label: 'ログアウト', click: () => doLogout() },
+    { type: 'separator' },
+    {
+      label: '自動起動を有効にする',
+      type: 'checkbox',
+      checked: autoStartEnabled,
+      click: (item) => {
+        autoStartEnabled = item.checked;
+        app.setLoginItemSettings({ openAtLogin: autoStartEnabled });
+      }
+    },
+    { type: 'separator' },
+    { label: 'バッジをクリア', click: () => floatWin && floatWin.webContents.send('badge:clear') },
+    { type: 'separator' },
+    { label: '終了', click: () => app.quit() },
+  ];
+}
+
 function createFloatingWindow() {
   if (floatWin) return floatWin;
   // アイコンをデータURLに変換（.ico→PNG）
@@ -107,7 +141,7 @@ function createFloatingWindow() {
         if (open){ badge.innerText='0'; badge.style.display='none'; }
       });
       // 右クリックでトレイメニューを開く
-      window.addEventListener('contextmenu', (e)=>{ e.preventDefault(); ipcRenderer.send('open:menu'); });
+      window.addEventListener('contextmenu', (e)=>{ e.preventDefault(); ipcRenderer.send('open:menu', { x: e.screenX, y: e.screenY }); });
       ipcRenderer.on('notify', (_, payload)=>{ 
         // done完了はバッジ対象外
         if (payload && payload.status === 'done') return;
@@ -161,39 +195,9 @@ function createTray() {
   }
   tray = new Tray(image);
   const updateMenu = () => {
-    const paired = !!store.get('pair_uid');
-    const contextMenu = Menu.buildFromTemplate([
-      { label: `状態: ${paired ? '連携中' : '未連携'}`, enabled: false },
-      { type: 'separator' },
-      { label: floatHidden ? 'アイコンを表示' : 'アイコンを非表示', click: () => {
-          try {
-            floatHidden = !floatHidden;
-            if (floatHidden) { if (floatWin) floatWin.hide(); }
-            else { if (!floatWin) createFloatingWindow(); floatWin.show(); }
-            updateMenu();
-          } catch {}
-        }
-      },
-      { type: 'separator' },
-      { label: 'ログイン', click: () => openAuthWindow() },
-      { label: 'ログアウト', click: () => doLogout() },
-      { type: 'separator' },
-      {
-        label: '自動起動を有効にする',
-        type: 'checkbox',
-        checked: autoStartEnabled,
-        click: (item) => {
-          autoStartEnabled = item.checked;
-          app.setLoginItemSettings({ openAtLogin: autoStartEnabled });
-        }
-      },
-      { type: 'separator' },
-      { label: 'バッジをクリア', click: () => floatWin && floatWin.webContents.send('badge:clear') },
-      { type: 'separator' },
-      { label: '終了', click: () => app.quit() },
-    ]);
+    const contextMenu = Menu.buildFromTemplate(buildContextMenuTemplate());
     tray.setContextMenu(contextMenu);
-    tray.setToolTip(`TaskManager Desktop${paired ? '（連携中）' : ''}`);
+    tray.setToolTip(`TaskManager Desktop${store.get('pair_uid') ? '（連携中）' : ''}`);
   };
   updateMenu();
   // メニュー更新関数を他から呼べるように保存
@@ -214,6 +218,8 @@ function startLocalBridge() {
             }
           } catch {}
         });
+        // 接続直後に未読を同期（必要ならローカル保持分を送る拡張余地）
+        ws.send(JSON.stringify({ type: 'hello', ok: true }));
       });
       wss = server;
       localPort = port;
@@ -291,9 +297,21 @@ app.whenReady().then(() => {
 ipcMain.on('float:pos', (_, pos) => {
   store.set('float_pos', pos);
 });
-// フローティング右クリックでトレイメニューを開く
-ipcMain.on('open:menu', () => {
-  try { if (tray) tray.popUpContextMenu(); } catch {}
+// フローティング右クリックでメニューを前面に出して表示
+ipcMain.on('open:menu', (_e, { x, y } = {}) => {
+  try {
+    // 一時的に最前面解除してメニューが背面に隠れないようにする
+    try { if (floatWin) floatWin.setAlwaysOnTop(false); } catch {}
+    const menu = Menu.buildFromTemplate(buildContextMenuTemplate());
+    if (x != null && y != null) Menu.popup({ window: floatWin, x, y, callback: () => {
+      try { if (floatWin) floatWin.setAlwaysOnTop(true, 'screen-saver'); } catch {}
+    }});
+    else Menu.setApplicationMenu(menu), Menu.popup({ window: floatWin, callback: () => {
+      try { if (floatWin) floatWin.setAlwaysOnTop(true, 'screen-saver'); } catch {}
+    }});
+  } catch {
+    try { if (floatWin) floatWin.setAlwaysOnTop(true, 'screen-saver'); } catch {}
+  }
 });
 
 // 一覧展開に合わせてウィンドウ幅を可変（84px → 84+236px）
@@ -451,15 +469,23 @@ function startCloudListener(uid, cfg) {
         const db = firebase.firestore();
         const auth = firebase.auth();
         try { await auth.setPersistence('local'); } catch {}
-        db.collection('users').doc(uid).collection('notifications').orderBy('createdAt','desc').limit(20)
-          .onSnapshot(snap => {
-            snap.docChanges().forEach(ch => {
-              if (ch.type === 'added') {
-                const d = ch.doc.data();
-                ipcRenderer.send('cloud:notify', { title: d.title || '通知', body: d.body || '' });
-              }
+        try {
+          db.collection('users').doc(uid).collection('notifications').orderBy('createdAt','desc').limit(20)
+            .onSnapshot(snap => {
+              try {
+                snap.docChanges().forEach(ch => {
+                  if (ch.type === 'added') {
+                    const d = ch.doc.data();
+                    ipcRenderer.send('cloud:notify', { title: d.title || '通知', body: d.body || '', status: d.status });
+                  }
+                });
+              } catch (e) { ipcRenderer.send('cloud:notify', { title: '通知の受信でエラー', body: String(e) }); }
+            }, (err) => {
+              ipcRenderer.send('cloud:notify', { title: '通知購読に失敗', body: String(err && err.message || err) });
             });
-          });
+        } catch (e) {
+          ipcRenderer.send('cloud:notify', { title: '通知購読の初期化に失敗', body: String(e) });
+        }
       })();
     </script></body></html>
   `));
