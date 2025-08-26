@@ -33,12 +33,12 @@ export const db = getFirestore(app);
 export const storage = getStorage(app);
 
 // 通知レコードをFirestoreに追加（ログイン時のみ）
-const addCloudNotification = async (title: string, body?: string) => {
+const addCloudNotification = async (title: string, body?: string, extra?: any) => {
   try {
     const uid = auth.currentUser?.uid;
     if (!uid) return;
     const ref = doc(collection(db, 'users', uid, 'notifications'));
-    await setDoc(ref, { title, body: body || '', createdAt: serverTimestamp() });
+    await setDoc(ref, { title, body: body || '', createdAt: serverTimestamp(), ...(extra || {}) });
   } catch (e) {
     console.warn('addCloudNotification failed', e);
   }
@@ -224,7 +224,7 @@ export const saveTask = async (userId: string, task: any) => {
       // ローカルストレージに保存
       localStorage.setItem(`tasks_${userId}`, JSON.stringify(tasks));
       notify('task_created', { Title: 'タスクを作成', Body: task.title, TaskId: task.id });
-      addCloudNotification('タスクを作成', task.title);
+      addCloudNotification('タスクを作成', task.title, { status: task.status, dueDate: task.dueDate, title: task.title });
       
       // セキュリティログ
       const securityLogger = SecurityLogger.getInstance();
@@ -261,7 +261,7 @@ export const saveTask = async (userId: string, task: any) => {
     }
     localStorage.setItem(`tasks_${userId}`, JSON.stringify(tasks));
     notify('task_created', { Title: 'タスクを作成', Body: task.title, TaskId: task.id });
-    addCloudNotification('タスクを作成', task.title);
+    addCloudNotification('タスクを作成', task.title, { status: task.status, dueDate: task.dueDate, title: task.title });
   } catch (error) {
     console.error('タスクの保存に失敗しました:', error);
     // Firebaseが失敗した場合はローカルストレージに保存
@@ -342,7 +342,7 @@ export const updateTask = async (userId: string, taskId: string, updates: any) =
       localStorage.setItem(`tasks_${userId}`, JSON.stringify(updatedTasks));
       if (updates?.status !== 'done') {
         notify('task_updated', { Title: 'タスクを更新', Body: updates?.title || '', TaskId: taskId });
-        addCloudNotification('タスクを更新', updates?.title || '');
+        addCloudNotification('タスクを更新', updates?.title || '', { status: updates?.status, dueDate: updates?.dueDate, title: updates?.title });
       }
     }
   } catch (error) {

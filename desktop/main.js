@@ -125,14 +125,31 @@ function createFloatingWindow() {
       let items = [];
       let open = false;
       const render = () => {
-        listEl.innerHTML = items.slice().reverse().map(function(x){
+        listEl.innerHTML = items.slice().reverse().map(function(x, idx){
           var dt = new Date(x.ts||Date.now());
           var time = dt.toLocaleString(undefined, { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' });
-          return "<div class='item'>"
+          var meta = [];
+          if (x.dueDate) meta.push('期限: ' + x.dueDate);
+          if (x.tTitle && x.tTitle !== x.title) meta.push('タスク: ' + x.tTitle);
+          return "<div class='item' data-i='"+idx+"'>"
             + "<div class='top'><div class='t'>" + (x.title||'通知') + "</div><div class='d'>" + time + "</div></div>"
             + (x.body?("<div class='b'>" + x.body + "</div>") : "")
+            + (meta.length? ("<div class='b' style='opacity:.7'>"+ meta.join(' ・ ') +"</div>") : "")
+            + "<div style='margin-top:6px;display:flex;gap:6px'><button data-act='del' style='padding:4px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:transparent;color:#e5e7eb;cursor:pointer'>削除</button></div>"
             + "</div>";
         }).join('');
+        // 個別削除
+        Array.from(listEl.querySelectorAll('button[data-act="del"]').values()).forEach(function(btn){
+          btn.addEventListener('click', function(ev){
+            ev.stopPropagation();
+            var parent = (ev.target as any).closest('.item');
+            var i = Number(parent.getAttribute('data-i'));
+            // 逆順描画なので実インデックスを変換
+            var realIndex = items.length - 1 - i;
+            items.splice(realIndex, 1);
+            render();
+          });
+        });
       };
       content.addEventListener('click', ()=>{
         open = !open;
@@ -145,7 +162,7 @@ function createFloatingWindow() {
       ipcRenderer.on('notify', (_, payload)=>{ 
         // done完了はバッジ対象外
         if (payload && payload.status === 'done') return;
-        items.push({ title: payload.title, body: payload.body, ts: Date.now() }); 
+        items.push({ title: payload.title, body: payload.body, dueDate: payload.dueDate, tTitle: payload.tTitle, ts: Date.now() }); 
         if (items.length>50) items = items.slice(-50); 
         render(); 
         const cnt = Number(badge.innerText||'0')+1; 
@@ -303,10 +320,10 @@ ipcMain.on('open:menu', (_e, { x, y } = {}) => {
     // 一時的に最前面解除してメニューが背面に隠れないようにする
     try { if (floatWin) floatWin.setAlwaysOnTop(false); } catch {}
     const menu = Menu.buildFromTemplate(buildContextMenuTemplate());
-    if (x != null && y != null) Menu.popup({ window: floatWin, x, y, callback: () => {
+    if (x != null && y != null) menu.popup({ window: floatWin, x, y, callback: () => {
       try { if (floatWin) floatWin.setAlwaysOnTop(true, 'screen-saver'); } catch {}
     }});
-    else Menu.setApplicationMenu(menu), Menu.popup({ window: floatWin, callback: () => {
+    else menu.popup({ window: floatWin, callback: () => {
       try { if (floatWin) floatWin.setAlwaysOnTop(true, 'screen-saver'); } catch {}
     }});
   } catch {
@@ -476,7 +493,7 @@ function startCloudListener(uid, cfg) {
                 snap.docChanges().forEach(ch => {
                   if (ch.type === 'added') {
                     const d = ch.doc.data();
-                    ipcRenderer.send('cloud:notify', { title: d.title || '通知', body: d.body || '', status: d.status });
+                    ipcRenderer.send('cloud:notify', { title: d.title || '通知', body: d.body || '', status: d.status, dueDate: d.dueDate, tTitle: d.title });
                   }
                 });
               } catch (e) { ipcRenderer.send('cloud:notify', { title: '通知の受信でエラー', body: String(e) }); }
