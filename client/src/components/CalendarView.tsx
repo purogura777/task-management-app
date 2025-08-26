@@ -44,8 +44,12 @@ interface Task {
   status: 'todo' | 'inProgress' | 'done';
   priority: 'low' | 'medium' | 'high';
   dueDate: string;
+  dueAt?: string;
+  allDay?: boolean;
   assignee: string;
   createdAt: string;
+  startDate?: string;
+  startAt?: string;
 }
 
 interface CalendarEvent {
@@ -155,7 +159,8 @@ const CalendarView: React.FC = () => {
       return {
         id: task.id,
         title: task.title,
-        start: task.dueDate,
+        start: task.startAt || task.startDate || task.dueAt || task.dueDate,
+        end: task.dueAt || task.dueDate,
         backgroundColor: statusColor.bg,
         borderColor: statusColor.border,
         textColor: statusColor.text,
@@ -166,7 +171,7 @@ const CalendarView: React.FC = () => {
         classNames: ['draggable-event'],
         // ドラッグ可能なイベントのスタイル
         display: 'block',
-        allDay: true,
+        allDay: task.allDay !== false ? true : false,
       };
     });
 

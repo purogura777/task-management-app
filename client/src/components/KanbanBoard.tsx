@@ -72,6 +72,8 @@ interface Task {
   status: 'todo' | 'inProgress' | 'done';
   priority: 'low' | 'medium' | 'high';
   dueDate: string;
+  dueAt?: string;
+  allDay?: boolean;
   assignee: string;
   createdAt: string;
   updatedAt: string;

@@ -72,9 +72,12 @@ function createFloatingWindow() {
     if (typeof saved === 'string' && saved.startsWith('data:')) {
       iconDataUrl = saved;
     } else {
+      const base = process.resourcesPath || process.cwd();
       const tryPaths = [
-        path.join(process.resourcesPath || process.cwd(), 'icon.png'),
-        path.join(process.resourcesPath || process.cwd(), 'icon.ico'),
+        path.join(base, 'icon.png'),
+        path.join(base, 'icon.ico'),
+        path.join(base, 'build', 'icon.png'),
+        path.join(base, 'build', 'icon.ico'),
       ];
       for (const p of tryPaths) {
         const img = nativeImage.createFromPath(p);
@@ -167,6 +170,8 @@ function createFloatingWindow() {
         ipcRenderer.send('list:toggle', { open });
         if (open){ badge.innerText='0'; badge.style.display='none'; }
       });
+      // クリックをメインプロセスにも通知（必要に応じて拡張）
+      content.addEventListener('mouseup', ()=>{ try { ipcRenderer.send('float:clicked'); } catch{} });
       // 右クリックでトレイメニューを開く
       window.addEventListener('contextmenu', (e)=>{ e.preventDefault(); ipcRenderer.send('open:menu', { x: e.screenX, y: e.screenY }); });
       ipcRenderer.on('notify', (_, payload)=>{ 
@@ -225,6 +230,14 @@ function createTray() {
     const contextMenu = Menu.buildFromTemplate(buildContextMenuTemplate());
     tray.setContextMenu(contextMenu);
     tray.setToolTip(`TaskManager Desktop${store.get('pair_uid') ? '（連携中）' : ''}`);
+    // アイコン描画が空ならフォールバック読み込み
+    try {
+      if (!image || image.isEmpty()) {
+        const base = process.resourcesPath || process.cwd();
+        const ico = nativeImage.createFromPath(path.join(base, 'build', 'icon.ico'));
+        if (ico && !ico.isEmpty()) tray.setImage(ico);
+      }
+    } catch {}
   };
   updateMenu();
   // メニュー更新関数を他から呼べるように保存

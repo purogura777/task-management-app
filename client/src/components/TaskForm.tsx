@@ -51,6 +51,9 @@ interface Task {
   recurrence?: 'none' | 'daily' | 'weekly' | 'monthly';
   seriesId?: string; // 繰り返しグループ識別子
   occurrenceIndex?: number; // 何回目か
+  startDate?: string;
+  startAt?: string;
+  startAllDay?: boolean;
   assignee: string;
   createdAt: string;
   updatedAt: string;
@@ -72,6 +75,10 @@ const TaskForm: React.FC<TaskFormProps> = ({ open, onClose, editingTask }) => {
   const [dueDateTime, setDueDateTime] = useState<Date | null>(new Date());
   const [allDay, setAllDay] = useState<boolean>(true);
   const [recurrence, setRecurrence] = useState<'none' | 'daily' | 'weekly' | 'monthly'>('none');
+  const [useStart, setUseStart] = useState<boolean>(false);
+  const [startAllDay, setStartAllDay] = useState<boolean>(true);
+  const [startDate, setStartDate] = useState<Date | null>(new Date());
+  const [startDateTime, setStartDateTime] = useState<Date | null>(new Date());
 
   const [formData, setFormData] = useState({
     title: '',
@@ -94,6 +101,12 @@ const TaskForm: React.FC<TaskFormProps> = ({ open, onClose, editingTask }) => {
       setDueDate(new Date(editingTask.dueDate));
       setDueDateTime(editingTask.dueAt ? new Date(editingTask.dueAt) : new Date(editingTask.dueDate + 'T09:00:00'));
       setRecurrence((editingTask.recurrence as any) || 'none');
+      // 開始
+      const hasStart = Boolean(editingTask.startDate || editingTask.startAt);
+      setUseStart(hasStart);
+      setStartAllDay(Boolean(editingTask.startAllDay ?? true));
+      setStartDate(new Date(editingTask.startDate || editingTask.dueDate));
+      setStartDateTime(editingTask.startAt ? new Date(editingTask.startAt) : new Date((editingTask.startDate || editingTask.dueDate) + 'T09:00:00'));
     } else {
       setFormData({
         title: '',
@@ -105,6 +118,10 @@ const TaskForm: React.FC<TaskFormProps> = ({ open, onClose, editingTask }) => {
       setDueDateTime(new Date());
       setAllDay(true);
       setRecurrence('none');
+      setUseStart(false);
+      setStartAllDay(true);
+      setStartDate(new Date());
+      setStartDateTime(new Date());
     }
   }, [editingTask]);
 
@@ -137,6 +154,8 @@ const TaskForm: React.FC<TaskFormProps> = ({ open, onClose, editingTask }) => {
       const seriesId = (isEditing && editingTask!.seriesId) ? editingTask!.seriesId : (recurrence !== 'none' ? `series_${Date.now()}` : undefined);
       const baseDueDateISO = dueDate.toISOString().split('T')[0];
       const baseDueAtISO = !allDay && dueDateTime ? dueDateTime.toISOString() : undefined;
+      const baseStartDateISO = useStart && startDate ? startDate.toISOString().split('T')[0] : undefined;
+      const baseStartAtISO = useStart && !startAllDay && startDateTime ? startDateTime.toISOString() : undefined;
 
       const createPayload = (idx: number, d: Date): Task => ({
         id: idx === 0 ? baseId : `${baseId}_${idx}`,
@@ -150,6 +169,9 @@ const TaskForm: React.FC<TaskFormProps> = ({ open, onClose, editingTask }) => {
         recurrence,
         seriesId,
         occurrenceIndex: seriesId ? idx : undefined,
+        startDate: baseStartDateISO,
+        startAt: baseStartAtISO,
+        startAllDay,
         assignee: user.name || '未設定',
         createdAt: isEditing ? editingTask!.createdAt : new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -167,6 +189,9 @@ const TaskForm: React.FC<TaskFormProps> = ({ open, onClose, editingTask }) => {
           dueDate: baseDueDateISO,
           dueAt: baseDueAtISO,
           allDay,
+          startDate: baseStartDateISO,
+          startAt: baseStartAtISO,
+          startAllDay,
           recurrence: 'none',
           assignee: user.name || '未設定',
           createdAt: isEditing ? editingTask!.createdAt : new Date().toISOString(),
@@ -406,6 +431,44 @@ const TaskForm: React.FC<TaskFormProps> = ({ open, onClose, editingTask }) => {
               />
             </Box>
           </LocalizationProvider>
+
+          {/* 開始日時（任意） */}
+          <Box sx={{ mt: 2 }}>
+            <FormControlLabel
+              control={<Switch checked={useStart} onChange={(e)=> setUseStart(e.target.checked)} />}
+              label="開始を設定"
+            />
+            {useStart && (
+              <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ja}>
+                <Box sx={{ display:'flex', gap:2, alignItems:'center', mt:1 }}>
+                  <Box sx={{ flex:1 }}>
+                    {startAllDay ? (
+                      <DatePicker
+                        label="開始日（終日）"
+                        value={startDate}
+                        onChange={(v)=> setStartDate(v)}
+                        sx={{ width:'100%' }}
+                        disabled={isLoading}
+                        slots={{ openPickerIcon: CalendarToday }}
+                      />
+                    ) : (
+                      <DateTimePicker
+                        label="開始（日時）"
+                        value={startDateTime}
+                        onChange={(v)=> { setStartDateTime(v); if (v) setStartDate(v); }}
+                        sx={{ width:'100%' }}
+                        disabled={isLoading}
+                      />
+                    )}
+                  </Box>
+                  <FormControlLabel
+                    control={<Switch checked={startAllDay} onChange={(e)=> setStartAllDay(e.target.checked)} />}
+                    label="終日"
+                  />
+                </Box>
+              </LocalizationProvider>
+            )}
+          </Box>
 
           <Box sx={{ mt: 2 }}>
             <FormControl fullWidth>
