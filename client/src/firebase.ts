@@ -446,6 +446,35 @@ interface Project {
   createdAt: string;
 }
 
+// 繰り返しシリーズ一括削除
+export const deleteSeries = async (userId: string, seriesId: string) => {
+  try {
+    if (firebaseConfig.apiKey === "AIzaSyBO97MjlMFzvcDOJiCzx5fuWtrDttxqX1I") {
+      const saved = localStorage.getItem(`tasks_${userId}`);
+      if (saved) {
+        const tasks = JSON.parse(saved) || [];
+        const filtered = tasks.filter((t: any) => t.seriesId !== seriesId);
+        localStorage.setItem(`tasks_${userId}`, JSON.stringify(filtered));
+        notify('task_deleted', { Title: 'シリーズを削除', Body: seriesId });
+        addCloudNotification('シリーズ削除', seriesId);
+      }
+      return;
+    }
+
+    // Firestore: seriesId を持つ全タスクを取得して削除
+    const q = query(collection(db, 'users', userId, 'tasks'), where('seriesId', '==', seriesId));
+    const snap = await getDocs(q);
+    const batchPromises: Promise<any>[] = [];
+    snap.forEach(d => batchPromises.push(deleteDoc(doc(db, 'users', userId, 'tasks', d.id))));
+    await Promise.all(batchPromises);
+    notify('task_deleted', { Title: 'シリーズを削除', Body: seriesId });
+    addCloudNotification('シリーズ削除', seriesId);
+  } catch (e) {
+    console.error('deleteSeries failed', e);
+    throw e;
+  }
+};
+
 interface ProjectInvite {
   token: string;
   projectId: string;

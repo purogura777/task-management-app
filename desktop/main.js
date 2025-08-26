@@ -19,20 +19,30 @@ let cachedIconData = null;
 
 const isWindows = process.platform === 'win32';
 
+function showFloating() {
+  try {
+    if (!floatWin) createFloatingWindow();
+    floatWin.show();
+    floatHidden = false;
+    try { if (tray && tray.__updateMenu) tray.__updateMenu(); } catch {}
+  } catch {}
+}
+
+function hideFloating() {
+  try {
+    if (floatWin) floatWin.hide();
+    floatHidden = true;
+    try { if (tray && tray.__updateMenu) tray.__updateMenu(); } catch {}
+  } catch {}
+}
+
 function buildContextMenuTemplate() {
   const paired = !!store.get('pair_uid');
   return [
     { label: `状態: ${paired ? '連携中' : '未連携'}`, enabled: false },
     { type: 'separator' },
-    { label: floatHidden ? 'アイコンを表示' : 'アイコンを非表示', click: () => {
-        try {
-          floatHidden = !floatHidden;
-          if (floatHidden) { if (floatWin) floatWin.hide(); }
-          else { if (!floatWin) createFloatingWindow(); floatWin.show(); }
-          try { if (tray && tray.__updateMenu) tray.__updateMenu(); } catch {}
-        } catch {}
-      }
-    },
+    { label: 'アイコンを表示', enabled: !!floatHidden, click: () => showFloating() },
+    { label: 'アイコンを非表示', enabled: !floatHidden, click: () => hideFloating() },
     { type: 'separator' },
     { label: 'ログイン', click: () => openAuthWindow() },
     { label: 'ログアウト', click: () => doLogout() },
@@ -219,7 +229,7 @@ function createTray() {
   updateMenu();
   // メニュー更新関数を他から呼べるように保存
   tray.__updateMenu = updateMenu;
-  tray.on('click', () => { if (!floatWin) createFloatingWindow(); else floatWin.show(); });
+  tray.on('click', () => { showFloating(); });
 }
 
 function startLocalBridge() {
@@ -435,6 +445,8 @@ function handleDeepLink(urlStr) {
       // ブートストラップ完了後は案内ウィンドウを閉じて購読を開始
       if (authWin) { try { authWin.close(); } catch {} authWin = null; }
       if (cfg && uid) startCloudListener(uid, cfg);
+      // 初回ブートストラップ後は確実に表示
+      showFloating();
     }
   } catch (e) {
     console.warn('handleDeepLink error', e);

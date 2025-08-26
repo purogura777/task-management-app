@@ -12,6 +12,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  FormControlLabel,
+  Switch,
   Alert,
   CircularProgress,
   IconButton,
@@ -27,13 +29,14 @@ import {
   CalendarToday,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { ja } from 'date-fns/locale';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
-import { saveTask, updateTask } from '../firebase';
+import { saveTask, updateTask, deleteSeries } from '../firebase';
 import { encryptData, sanitizeInput, decryptData } from '../utils/security';
 
 interface Task {
@@ -43,6 +46,11 @@ interface Task {
   status: 'todo' | 'inProgress' | 'done';
   priority: 'low' | 'medium' | 'high';
   dueDate: string;
+  dueAt?: string; // ISO文字列（終日でない場合）
+  allDay?: boolean;
+  recurrence?: 'none' | 'daily' | 'weekly' | 'monthly';
+  seriesId?: string; // 繰り返しグループ識別子
+  occurrenceIndex?: number; // 何回目か
   assignee: string;
   createdAt: string;
   updatedAt: string;
@@ -61,6 +69,9 @@ const TaskForm: React.FC<TaskFormProps> = ({ open, onClose, editingTask }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [dueDate, setDueDate] = useState<Date | null>(new Date());
+  const [dueDateTime, setDueDateTime] = useState<Date | null>(new Date());
+  const [allDay, setAllDay] = useState<boolean>(true);
+  const [recurrence, setRecurrence] = useState<'none' | 'daily' | 'weekly' | 'monthly'>('none');
 
   const [formData, setFormData] = useState({
     title: '',
@@ -79,7 +90,10 @@ const TaskForm: React.FC<TaskFormProps> = ({ open, onClose, editingTask }) => {
         status: editingTask.status,
         priority: editingTask.priority,
       });
+      setAllDay(Boolean(editingTask.allDay ?? true));
       setDueDate(new Date(editingTask.dueDate));
+      setDueDateTime(editingTask.dueAt ? new Date(editingTask.dueAt) : new Date(editingTask.dueDate + 'T09:00:00'));
+      setRecurrence((editingTask.recurrence as any) || 'none');
     } else {
       setFormData({
         title: '',
@@ -88,6 +102,9 @@ const TaskForm: React.FC<TaskFormProps> = ({ open, onClose, editingTask }) => {
         priority: 'medium',
       });
       setDueDate(new Date());
+      setDueDateTime(new Date());
+      setAllDay(true);
+      setRecurrence('none');
     }
   }, [editingTask]);
 
@@ -116,25 +133,76 @@ const TaskForm: React.FC<TaskFormProps> = ({ open, onClose, editingTask }) => {
       const safeDescription = sanitizeInput(formData.description);
       const encDescription = encryptData(safeDescription);
       
-      const taskData: Task = {
-        id: isEditing ? editingTask!.id : Date.now().toString(),
+      const baseId = isEditing ? editingTask!.id : Date.now().toString();
+      const seriesId = (isEditing && editingTask!.seriesId) ? editingTask!.seriesId : (recurrence !== 'none' ? `series_${Date.now()}` : undefined);
+      const baseDueDateISO = dueDate.toISOString().split('T')[0];
+      const baseDueAtISO = !allDay && dueDateTime ? dueDateTime.toISOString() : undefined;
+
+      const createPayload = (idx: number, d: Date): Task => ({
+        id: idx === 0 ? baseId : `${baseId}_${idx}`,
         title: safeTitle,
         description: encDescription,
         status: formData.status,
         priority: formData.priority,
-        dueDate: dueDate.toISOString().split('T')[0],
+        dueDate: d.toISOString().split('T')[0],
+        dueAt: !allDay && dueDateTime ? new Date(d.setHours(dueDateTime.getHours(), dueDateTime.getMinutes(), 0, 0)).toISOString() : undefined,
+        allDay,
+        recurrence,
+        seriesId,
+        occurrenceIndex: seriesId ? idx : undefined,
         assignee: user.name || '未設定',
         createdAt: isEditing ? editingTask!.createdAt : new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        // 現在のワークスペース/プロジェクト情報を設定
         workspace: currentWorkspace || '個人プロジェクト',
         project: currentProject || '個人プロジェクト',
-      };
+      });
 
-      if (isEditing) {
-        await updateTask(user.id, taskData.id, taskData);
+      if (!seriesId) {
+        const taskData: Task = {
+          id: baseId,
+          title: safeTitle,
+          description: encDescription,
+          status: formData.status,
+          priority: formData.priority,
+          dueDate: baseDueDateISO,
+          dueAt: baseDueAtISO,
+          allDay,
+          recurrence: 'none',
+          assignee: user.name || '未設定',
+          createdAt: isEditing ? editingTask!.createdAt : new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          workspace: currentWorkspace || '個人プロジェクト',
+          project: currentProject || '個人プロジェクト',
+        };
+        if (isEditing) {
+          await updateTask(user.id, taskData.id, taskData);
+        } else {
+          await saveTask(user.id, taskData);
+        }
       } else {
-        await saveTask(user.id, taskData);
+        // 繰り返し: 直近の一定範囲を生成
+        const base = new Date(baseDueDateISO + 'T00:00:00');
+        const occurrences: Date[] = [new Date(base)];
+        const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+        if (recurrence === 'daily') {
+          for (let i = 1; i < 30; i++) occurrences.push(addDays(base, i));
+        } else if (recurrence === 'weekly') {
+          for (let i = 1; i < 12; i++) occurrences.push(addDays(base, i * 7));
+        } else if (recurrence === 'monthly') {
+          for (let i = 1; i < 12; i++) occurrences.push(new Date(base.getFullYear(), base.getMonth() + i, base.getDate()));
+        }
+        if (isEditing) {
+          // 既存1件は更新、それ以外は追加
+          await updateTask(user.id, baseId, createPayload(0, occurrences[0]));
+          for (let i = 1; i < occurrences.length; i++) {
+            await saveTask(user.id, `${baseId}_${i}`, createPayload(i, occurrences[i]));
+          }
+        } else {
+          for (let i = 0; i < occurrences.length; i++) {
+            const t = createPayload(i, occurrences[i]);
+            await saveTask(user.id, t);
+          }
+        }
       }
       
       toast.success(isEditing ? 'タスクを更新しました' : 'タスクを作成しました');
@@ -311,17 +379,50 @@ const TaskForm: React.FC<TaskFormProps> = ({ open, onClose, editingTask }) => {
           </Box>
 
           <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ja}>
-            <DatePicker
-              label="期限日"
-              value={dueDate}
-              onChange={(newValue) => setDueDate(newValue)}
-              sx={{ width: '100%' }}
-              disabled={isLoading}
-              slots={{
-                openPickerIcon: CalendarToday,
-              }}
-            />
+            <Box sx={{ display:'flex', gap:2, alignItems:'center' }}>
+              <Box sx={{ flex:1 }}>
+                {allDay ? (
+                  <DatePicker
+                    label="期限日（終日）"
+                    value={dueDate}
+                    onChange={(newValue) => setDueDate(newValue)}
+                    sx={{ width: '100%' }}
+                    disabled={isLoading}
+                    slots={{ openPickerIcon: CalendarToday }}
+                  />
+                ) : (
+                  <DateTimePicker
+                    label="期限（日時）"
+                    value={dueDateTime}
+                    onChange={(v) => { setDueDateTime(v); if (v) setDueDate(v); }}
+                    sx={{ width: '100%' }}
+                    disabled={isLoading}
+                  />
+                )}
+              </Box>
+              <FormControlLabel
+                control={<Switch checked={allDay} onChange={(e)=> setAllDay(e.target.checked)} />}
+                label="終日"
+              />
+            </Box>
           </LocalizationProvider>
+
+          <Box sx={{ mt: 2 }}>
+            <FormControl fullWidth>
+              <InputLabel>繰り返し</InputLabel>
+              <Select
+                value={recurrence}
+                label="繰り返し"
+                onChange={(e)=> setRecurrence(e.target.value as any)}
+                disabled={isLoading}
+              >
+                <MenuItem value="none">なし</MenuItem>
+                <MenuItem value="daily">毎日</MenuItem>
+                <MenuItem value="weekly">毎週</MenuItem>
+                <MenuItem value="monthly">毎月</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
 
           <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
             <Person sx={{ fontSize: 18, color: 'text.secondary' }} />
@@ -333,6 +434,29 @@ const TaskForm: React.FC<TaskFormProps> = ({ open, onClose, editingTask }) => {
       </DialogContent>
 
       <DialogActions sx={{ p: 3, pt: 1 }}>
+        {isEditing && (editingTask as any)?.seriesId && (
+          <Button
+            color="error"
+            variant="outlined"
+            disabled={isLoading}
+            onClick={async ()=>{
+              try {
+                setIsLoading(true);
+                await deleteSeries(user!.id, (editingTask as any).seriesId as any);
+                toast.success('シリーズを一括削除しました');
+                onClose();
+              } catch (e) {
+                toast.error('シリーズ削除に失敗しました');
+              } finally {
+                setIsLoading(false);
+              }
+            }}
+            sx={{ mr: 'auto' }}
+          >
+            シリーズ一括削除
+          </Button>
+        )}
+
         <Button
           onClick={onClose}
           variant="outlined"
