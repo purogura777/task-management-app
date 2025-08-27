@@ -10,7 +10,7 @@
   },
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!manifest\\.json|favicon\\.ico|favicon\\.svg|.*\\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)).*)",
       "destination": "/index.html"
     }
   ],
@@ -29,6 +29,19 @@
         {
           "key": "X-XSS-Protection",
           "value": "1; mode=block"
+        }
+      ]
+    },
+    {
+      "source": "/manifest.json",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
         }
       ]
     }

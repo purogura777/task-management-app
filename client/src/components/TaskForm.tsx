@@ -106,9 +106,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ open, onClose, editingTask }) => {
       setDueDate(new Date(editingTask.dueDate));
       setDueDateTime(editingTask.dueAt ? new Date(editingTask.dueAt) : new Date(editingTask.dueDate + 'T09:00:00'));
       setRecurrence((editingTask.recurrence as any) || 'none');
-      // 開始
-      const hasStart = Boolean(editingTask.startDate || editingTask.startAt);
-      setUseStart(hasStart);
+      // 開始（常に表示なのでuseStartは不要）
       setStartAllDay(Boolean(editingTask.startAllDay ?? true));
       setStartDate(new Date(editingTask.startDate || editingTask.dueDate));
       setStartDateTime(editingTask.startAt ? new Date(editingTask.startAt) : new Date((editingTask.startDate || editingTask.dueDate) + 'T09:00:00'));
@@ -126,7 +124,6 @@ const TaskForm: React.FC<TaskFormProps> = ({ open, onClose, editingTask }) => {
       setDueDateTime(new Date());
       setAllDay(true);
       setRecurrence('none');
-      setUseStart(false);
       setStartAllDay(true);
       setStartDate(new Date());
       setStartDateTime(new Date());
