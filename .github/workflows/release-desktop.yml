@@ -51,11 +51,9 @@ jobs:
         with:
           name: desktop-${{ matrix.os }}-${{ github.ref_name }}
           path: |
-            desktop/dist/**/*.exe
-            !desktop/dist/**/elevate.exe
-            !desktop/dist/**/*.blockmap
-            desktop/dist/**/*.dmg
-            desktop/dist/**/*.AppImage
+            desktop/dist/*.exe
+            desktop/dist/*.dmg
+            desktop/dist/*.AppImage
             desktop/dist/**
 
       - name: Attach assets to GitHub Release
@@ -63,11 +61,9 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           files: |
-            desktop/dist/**/*.exe
-            !desktop/dist/**/elevate.exe
-            !desktop/dist/**/*.blockmap
-            desktop/dist/**/*.dmg
-            desktop/dist/**/*.AppImage
+            desktop/dist/*.exe
+            desktop/dist/*.dmg
+            desktop/dist/*.AppImage
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
