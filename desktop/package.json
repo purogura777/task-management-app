@@ -1,6 +1,6 @@
 {
   "name": "desktop-helper",
-  "version": "1.3.7",
+  "version": "1.3.8",
   "private": true,
   "main": "main.js",
   "type": "commonjs",
@@ -42,7 +42,13 @@
       { "from": "../ChatGPT-Image-2025年8月19日-19_55_16.ico", "to": "icon.ico" }
     ],
     "publish": [
-      { "provider": "github", "owner": "purogura777", "repo": "task-management-app" }
+      { 
+        "provider": "github", 
+        "owner": "purogura777", 
+        "repo": "task-management-app",
+        "publishAutoUpdate": true,
+        "releaseType": "release"
+      }
     ],
     "nsis": {
       "include": "build/installer.nsh",
@@ -57,15 +63,15 @@
     "win": {
       "target": ["nsis", "portable"],
       "icon": "../ChatGPT-Image-2025年8月19日-19_55_16.ico",
-      "artifactName": "タスク管理アプリ-デスクトップ-v${version}-セットアップ.${ext}"
+      "artifactName": "TaskManager-Desktop-v${version}-Setup.${ext}"
     },
     "portable": {
-      "artifactName": "タスク管理アプリ-デスクトップ-v${version}-ポータブル.${ext}"
+      "artifactName": "TaskManager-Desktop-v${version}-Portable.${ext}"
     },
     "mac": {
       "target": ["dmg"],
       "icon": "build/icon.icns",
-      "artifactName": "タスク管理アプリ-デスクトップ-v${version}-macOS.${ext}"
+      "artifactName": "TaskManager-Desktop-v${version}-macOS.${ext}"
     },
     "linux": {
       "target": ["AppImage"]

@@ -366,7 +366,7 @@ const ListView: React.FC = () => {
                   createdAt: new Date().toISOString(),
                 };
                 setEditingTask(newTask);
-                setDialogOpen(true);
+                setTaskFormOpen(true);
               }}
             >
               新しいタスク

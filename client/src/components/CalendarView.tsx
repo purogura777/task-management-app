@@ -36,6 +36,7 @@ import { ja } from 'date-fns/locale';
 import { useAuth } from '../contexts/AuthContext';
 import { setupUnifiedTasksListener, saveTask, updateTask, deleteTask } from '../firebase';
 import { decryptData } from '../utils/security';
+import TaskForm from './TaskForm';
 
 interface Task {
   id: string;
@@ -72,6 +73,7 @@ const CalendarView: React.FC = () => {
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [taskFormOpen, setTaskFormOpen] = useState(false);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -197,7 +199,7 @@ const CalendarView: React.FC = () => {
   const handleEventClick = (arg: any) => {
     setSelectedEvent(arg.event);
     setEditingTask(arg.event.extendedProps.task);
-    setDialogOpen(true);
+    setTaskFormOpen(true);
   };
 
   const handleSaveTask = async () => {
@@ -304,7 +306,7 @@ const CalendarView: React.FC = () => {
                 createdAt: new Date().toISOString(),
               };
               setEditingTask(newTask);
-              setDialogOpen(true);
+              setTaskFormOpen(true);
             }}
           >
             新しいタスク
@@ -483,6 +485,16 @@ const CalendarView: React.FC = () => {
             </Button>
           </DialogActions>
         </Dialog>
+
+        {/* TaskForm */}
+        <TaskForm
+          open={taskFormOpen}
+          onClose={() => {
+            setTaskFormOpen(false);
+            setEditingTask(null);
+          }}
+          editingTask={editingTask}
+        />
       </motion.div>
     </Box>
   );

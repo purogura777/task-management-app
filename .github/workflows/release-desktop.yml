@@ -62,8 +62,8 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           files: |
-            desktop/dist/*セットアップ*.exe
-            desktop/dist/*ポータブル*.exe
+            desktop/dist/*Setup*.exe
+            desktop/dist/*Portable*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

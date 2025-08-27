@@ -44,6 +44,7 @@ import { ja } from 'date-fns/locale';
 import { useAuth } from '../contexts/AuthContext';
 import { setupUnifiedTasksListener, saveTask, updateTask, deleteTask } from '../firebase';
 import { decryptData } from '../utils/security';
+import TaskForm from './TaskForm';
 
 interface Task {
   id: string;
@@ -66,6 +67,7 @@ const TimelineView: React.FC = () => {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [taskFormOpen, setTaskFormOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
 
   useEffect(() => {
@@ -299,7 +301,7 @@ const TimelineView: React.FC = () => {
                   endDate: format(addDays(new Date(), 1), 'yyyy-MM-dd'),
                 };
                 setEditingTask(newTask);
-                setDialogOpen(true);
+                setTaskFormOpen(true);
               }}
             >
               新しいタスク
@@ -629,6 +631,16 @@ const TimelineView: React.FC = () => {
             </Button>
           </DialogActions>
         </Dialog>
+
+        {/* TaskForm */}
+        <TaskForm
+          open={taskFormOpen}
+          onClose={() => {
+            setTaskFormOpen(false);
+            setEditingTask(null);
+          }}
+          editingTask={editingTask}
+        />
       </motion.div>
     </Box>
   );
