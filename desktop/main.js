@@ -164,7 +164,7 @@ function createFloatingWindow() {
       /* ドラッグ可能エッジを色で強調（太めのリング） */
       .ring { position:absolute; inset:0; border-radius:28px; -webkit-app-region: drag; pointer-events:none; box-shadow: inset 0 0 0 10px rgba(14,165,233,.55), inset 0 0 36px rgba(14,165,233,.30); }
       /* 端の16pxはドラッグ、中央96pxはクリック領域（広めのドラッグ） */
-      .content { position:absolute; width:96px; height:96px; left:16px; top:16px; -webkit-app-region: no-drag; cursor:pointer; border-radius:20px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
+      .content { position:absolute; width:96px; height:96px; left:16px; top:16px; -webkit-app-region: no-drag; cursor:pointer; border-radius:20px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); background-image: url('` + iconDataUrl + `'); background-size: cover; background-position: center; }
       .badge { position:absolute; right:0px; top:0px; min-width:22px; height:22px; border-radius:11px; background:#e11d48; color:#fff; font-size:12px; display:flex; align-items:center; justify-content:center; padding:0 7px; }
       .list { position:absolute; left:156px; right:12px; top:12px; bottom:12px; width:auto; overflow:auto; background:rgba(17,24,39,.96); color:#e5e7eb; border-radius:12px; box-shadow:0 12px 28px rgba(0,0,0,.35); padding:12px; display:none; backdrop-filter: blur(8px); }
       .item { padding:8px 10px; border-radius:10px; background:rgba(255,255,255,0.03); }

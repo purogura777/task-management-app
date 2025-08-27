@@ -30,6 +30,7 @@ import {
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
+import { TimePicker } from '@mui/x-date-pickers/TimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { ja } from 'date-fns/locale';
@@ -77,7 +78,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ open, onClose, editingTask }) => {
   const [dueDateTime, setDueDateTime] = useState<Date | null>(new Date());
   const [allDay, setAllDay] = useState<boolean>(true);
   const [recurrence, setRecurrence] = useState<'none' | 'daily' | 'weekly' | 'monthly'>('none');
-  const [useStart, setUseStart] = useState<boolean>(false);
+  // 開始日は常に使用するため、useStartは削除
   const [startAllDay, setStartAllDay] = useState<boolean>(true);
   const [startDate, setStartDate] = useState<Date | null>(new Date());
   const [startDateTime, setStartDateTime] = useState<Date | null>(new Date());
@@ -163,8 +164,8 @@ const TaskForm: React.FC<TaskFormProps> = ({ open, onClose, editingTask }) => {
       const seriesId = (isEditing && editingTask!.seriesId) ? editingTask!.seriesId : (recurrence !== 'none' ? `series_${Date.now()}` : undefined);
       const baseDueDateISO = dueDate.toISOString().split('T')[0];
       const baseDueAtISO = !allDay && dueDateTime ? dueDateTime.toISOString() : undefined;
-      const baseStartDateISO = useStart && startDate ? startDate.toISOString().split('T')[0] : undefined;
-      const baseStartAtISO = useStart && !startAllDay && startDateTime ? startDateTime.toISOString() : undefined;
+      const baseStartDateISO = startDate ? startDate.toISOString().split('T')[0] : undefined;
+      const baseStartAtISO = !startAllDay && startDateTime ? startDateTime.toISOString() : undefined;
 
       const createPayload = (idx: number, d: Date): Task => ({
         id: idx === 0 ? baseId : `${baseId}_${idx}`,
@@ -416,71 +417,121 @@ const TaskForm: React.FC<TaskFormProps> = ({ open, onClose, editingTask }) => {
             </FormControl>
           </Box>
 
-          {/* 開始日時（任意） */}
-          <Box sx={{ mt: 2 }}>
-            <FormControlLabel
-              control={<Switch checked={useStart} onChange={(e)=> setUseStart(e.target.checked)} />}
-              label="開始を設定"
-            />
-            {useStart && (
-              <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ja}>
-                <Box sx={{ display:'flex', gap:2, alignItems:'center', mt:1 }}>
-                  <Box sx={{ flex:1 }}>
-                    {startAllDay ? (
-                      <DatePicker
-                        label="開始日（終日）"
-                        value={startDate}
-                        onChange={(v)=> setStartDate(v)}
-                        sx={{ width:'100%' }}
-                        disabled={isLoading}
-                        slots={{ openPickerIcon: CalendarToday }}
-                      />
-                    ) : (
-                      <DateTimePicker
-                        label="開始（日時）"
-                        value={startDateTime}
-                        onChange={(v)=> { setStartDateTime(v); if (v) setStartDate(v); }}
-                        sx={{ width:'100%' }}
-                        disabled={isLoading}
-                      />
-                    )}
-                  </Box>
-                  <FormControlLabel
-                    control={<Switch checked={startAllDay} onChange={(e)=> setStartAllDay(e.target.checked)} />}
-                    label="終日"
-                  />
-                </Box>
-              </LocalizationProvider>
-            )}
-          </Box>
-
-          {/* 終了日時（期限） */}
+          {/* 開始日時 */}
           <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ja}>
-            <Box sx={{ display:'flex', gap:2, alignItems:'center', mt: 2 }}>
-              <Box sx={{ flex:1 }}>
-                {allDay ? (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                開始日時
+              </Typography>
+              <FormControlLabel
+                control={<Switch checked={startAllDay} onChange={(e)=> setStartAllDay(e.target.checked)} />}
+                label="開始を終日に設定"
+                sx={{ mb: 1 }}
+              />
+              
+              {startAllDay ? (
+                <DatePicker
+                  label="開始日"
+                  value={startDate}
+                  onChange={(v)=> setStartDate(v)}
+                  sx={{ width:'100%' }}
+                  disabled={isLoading}
+                  slots={{ openPickerIcon: CalendarToday }}
+                />
+              ) : (
+                <Box sx={{ display: 'flex', gap: 2 }}>
                   <DatePicker
-                    label="期限日（終日）"
-                    value={dueDate}
-                    onChange={(newValue) => setDueDate(newValue)}
-                    sx={{ width: '100%' }}
+                    label="開始日"
+                    value={startDate}
+                    onChange={(v)=> { 
+                      setStartDate(v); 
+                      if (v && startDateTime) {
+                        const newDateTime = new Date(v);
+                        newDateTime.setHours(startDateTime.getHours(), startDateTime.getMinutes());
+                        setStartDateTime(newDateTime);
+                      }
+                    }}
+                    sx={{ flex: 1 }}
                     disabled={isLoading}
                     slots={{ openPickerIcon: CalendarToday }}
                   />
-                ) : (
-                  <DateTimePicker
-                    label="期限（日時）"
-                    value={dueDateTime}
-                    onChange={(v) => { setDueDateTime(v); if (v) setDueDate(v); }}
-                    sx={{ width: '100%' }}
+                  <TimePicker
+                    label="開始時刻"
+                    value={startDateTime}
+                    onChange={(v)=> { 
+                      setStartDateTime(v);
+                      if (v && startDate) {
+                        const newDateTime = new Date(startDate);
+                        newDateTime.setHours(v.getHours(), v.getMinutes());
+                        setStartDateTime(newDateTime);
+                      }
+                    }}
+                    sx={{ flex: 1 }}
                     disabled={isLoading}
+                    ampm={false}
+                    format="HH:mm"
                   />
-                )}
-              </Box>
+                </Box>
+              )}
+            </Box>
+          </LocalizationProvider>
+
+          {/* 終了日時（期限） */}
+          <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ja}>
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                期限日時
+              </Typography>
               <FormControlLabel
                 control={<Switch checked={allDay} onChange={(e)=> setAllDay(e.target.checked)} />}
-                label="終日"
+                label="期限を終日に設定"
+                sx={{ mb: 1 }}
               />
+              
+              {allDay ? (
+                <DatePicker
+                  label="期限日"
+                  value={dueDate}
+                  onChange={(newValue) => setDueDate(newValue)}
+                  sx={{ width: '100%' }}
+                  disabled={isLoading}
+                  slots={{ openPickerIcon: CalendarToday }}
+                />
+              ) : (
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <DatePicker
+                    label="期限日"
+                    value={dueDate}
+                    onChange={(v) => { 
+                      setDueDate(v); 
+                      if (v && dueDateTime) {
+                        const newDateTime = new Date(v);
+                        newDateTime.setHours(dueDateTime.getHours(), dueDateTime.getMinutes());
+                        setDueDateTime(newDateTime);
+                      }
+                    }}
+                    sx={{ flex: 1 }}
+                    disabled={isLoading}
+                    slots={{ openPickerIcon: CalendarToday }}
+                  />
+                  <TimePicker
+                    label="期限時刻"
+                    value={dueDateTime}
+                    onChange={(v) => { 
+                      setDueDateTime(v);
+                      if (v && dueDate) {
+                        const newDateTime = new Date(dueDate);
+                        newDateTime.setHours(v.getHours(), v.getMinutes());
+                        setDueDateTime(newDateTime);
+                      }
+                    }}
+                    sx={{ flex: 1 }}
+                    disabled={isLoading}
+                    ampm={false}
+                    format="HH:mm"
+                  />
+                </Box>
+              )}
             </Box>
           </LocalizationProvider>
 

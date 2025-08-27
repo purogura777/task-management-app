@@ -224,7 +224,14 @@ export const saveTask = async (userId: string, task: any) => {
       // ローカルストレージに保存
       localStorage.setItem(`tasks_${userId}`, JSON.stringify(tasks));
       notify('task_created', { Title: 'タスクを作成', Body: task.title, TaskId: task.id });
-      addCloudNotification('タスクを作成', task.title, { id: task.id, status: task.status, dueDate: task.dueDate, title: task.title });
+      addCloudNotification('タスクを作成', task.title, { 
+        id: task.id, 
+        status: task.status, 
+        dueDate: task.dueDate, 
+        title: task.title,
+        description: task.description,
+        workspace: task.workspace
+      });
       
       // セキュリティログ
       const securityLogger = SecurityLogger.getInstance();
@@ -261,7 +268,14 @@ export const saveTask = async (userId: string, task: any) => {
     }
     localStorage.setItem(`tasks_${userId}`, JSON.stringify(tasks));
     notify('task_created', { Title: 'タスクを作成', Body: task.title, TaskId: task.id });
-    addCloudNotification('タスクを作成', task.title, { id: task.id, status: task.status, dueDate: task.dueDate, title: task.title });
+    addCloudNotification('タスクを作成', task.title, { 
+      id: task.id, 
+      status: task.status, 
+      dueDate: task.dueDate, 
+      title: task.title,
+      description: task.description,
+      workspace: task.workspace
+    });
   } catch (error) {
     console.error('タスクの保存に失敗しました:', error);
     // Firebaseが失敗した場合はローカルストレージに保存
