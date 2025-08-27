@@ -61,7 +61,8 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           files: |
-            desktop/dist/*.exe
+            desktop/dist/*セットアップ*.exe
+            desktop/dist/*ポータブル*.exe
             desktop/dist/*.dmg
             desktop/dist/*.AppImage
         env:
