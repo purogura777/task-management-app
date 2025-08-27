@@ -526,9 +526,49 @@ const Settings: React.FC = () => {
               >Webフローティング無効化</Button>
               <Button
                 variant="outlined"
-                onClick={() => {
-                  const url = downloadUrl || localStorage.getItem('desktop_download_url') || 'https://github.com/OWNER/REPO/releases/latest';
-                  window.open(url, '_blank');
+                onClick={async () => {
+                  try {
+                    let url = downloadUrl || localStorage.getItem('desktop_download_url') || '';
+                    const headers: any = { 'Accept': 'application/vnd.github+json' };
+                    const toName = (a: any) => (a?.name || '').toLowerCase();
+
+                    // releases/latest を直接叩いてアセットを解決
+                    if (!url || /releases\/(latest|tag\//.test(url)) || /github\.com\//.test(url)) {
+                      const api = 'https://api.github.com/repos/purogura777/task-management-app/releases?per_page=10';
+                      const res = await fetch(api, { headers });
+                      if (!res.ok) throw new Error('GitHub API エラー');
+                      const all: any[] = await res.json();
+                      const stable = all.filter(r => !r.draft && !r.prerelease).sort((a, b) => new Date(b.published_at||b.created_at).getTime() - new Date(a.published_at||a.created_at).getTime());
+                      const latest = stable[0] || all[0];
+                      const assets: any[] = latest?.assets || [];
+                      const ua = navigator.userAgent.toLowerCase();
+                      const isMac = /mac|iphone|ipad/.test(ua);
+                      if (isMac) {
+                        const dmgs = assets.filter(a => toName(a).endsWith('.dmg'));
+                        const arm = dmgs.find(a => /arm64/.test(toName(a)));
+                        const bySize = dmgs.slice().sort((a,b) => (b.size||0)-(a.size||0))[0];
+                        url = (arm || bySize || dmgs[0])?.browser_download_url || latest?.html_url;
+                      } else {
+                        const exes = assets.filter(a => toName(a).endsWith('.exe') && !/(elevate|blockmap)/.test(toName(a)));
+                        const prefer = exes.find(a => /(setup|installer)/.test(toName(a)));
+                        const bySize = exes.slice().sort((a,b) => (b.size||0)-(a.size||0))[0];
+                        url = (prefer || bySize || exes[0])?.browser_download_url || latest?.html_url;
+                      }
+                    }
+
+                    if (!url) {
+                      url = 'https://github.com/purogura777/task-management-app/releases/latest';
+                    }
+
+                    // URLを保存して次回から直接ダウンロードを使用
+                    localStorage.setItem('desktop_download_url', url);
+                    setDownloadUrl(url);
+
+                    // 直接ダウンロードを開く
+                    window.open(url, '_blank');
+                  } catch (e) {
+                    toast.error('ダウンロードURLの解決に失敗しました');
+                  }
                 }}
               >ダウンロード</Button>
               <Button
