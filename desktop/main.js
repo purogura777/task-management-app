@@ -272,8 +272,20 @@ function createFloatingWindow() {
       });
       // クリックをメインプロセスにも通知（必要に応じて拡張）
       content.addEventListener('mouseup', ()=>{ try { ipcRenderer.send('float:clicked'); } catch{} });
-      // 右クリックでトレイメニューを開く
-      window.addEventListener('contextmenu', (e)=>{ e.preventDefault(); ipcRenderer.send('open:menu', { x: e.screenX, y: e.screenY }); });
+      // 右クリックでトレイメニューを開く（contentエリア内でのみ）
+      content.addEventListener('contextmenu', (e)=>{ 
+        e.preventDefault(); 
+        e.stopPropagation();
+        ipcRenderer.send('open:menu', { x: e.screenX, y: e.screenY }); 
+      });
+      
+      // ウィンドウの透明領域での右クリックを無効化
+      window.addEventListener('contextmenu', (e) => {
+        if (e.target === document.body || e.target === document.documentElement) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      });
       ipcRenderer.on('notify', (_, payload)=>{ 
         // done完了はバッジ対象外
         if (payload && payload.status === 'done') return;
@@ -526,18 +538,37 @@ ipcMain.on('float:pos', (_, pos) => {
   store.set('float_pos', pos);
 });
 // フローティング右クリックでメニューを前面に出して表示
-ipcMain.on('open:menu', (_e, { x, y } = {}) => {
+ipcMain.on('open:menu', (_e, { x, y, adjustX, adjustY } = {}) => {
   try {
     // 一時的に最前面解除してメニューが背面に隠れないようにする
     try { if (floatWin) floatWin.setAlwaysOnTop(false); } catch {}
     const menu = Menu.buildFromTemplate(buildContextMenuTemplate());
-    if (x != null && y != null) menu.popup({ window: floatWin, x, y, callback: () => {
-      try { if (floatWin) floatWin.setAlwaysOnTop(true, 'screen-saver'); } catch {}
-    }});
-    else menu.popup({ window: floatWin, callback: () => {
-      try { if (floatWin) floatWin.setAlwaysOnTop(true, 'screen-saver'); } catch {}
-    }});
-  } catch {
+    
+    if (x != null && y != null && floatWin) {
+      // フローティングウィンドウの位置を取得
+      const winBounds = floatWin.getBounds();
+      
+      // メニューをウィンドウの右隣に表示
+      const menuX = winBounds.x + winBounds.width + 5;
+      const menuY = winBounds.y;
+      
+      menu.popup({ 
+        x: menuX, 
+        y: menuY, 
+        callback: () => {
+          try { if (floatWin) floatWin.setAlwaysOnTop(true, 'screen-saver'); } catch {}
+        }
+      });
+    } else {
+      menu.popup({ 
+        window: floatWin, 
+        callback: () => {
+          try { if (floatWin) floatWin.setAlwaysOnTop(true, 'screen-saver'); } catch {}
+        }
+      });
+    }
+  } catch (error) {
+    console.error('メニュー表示エラー:', error);
     try { if (floatWin) floatWin.setAlwaysOnTop(true, 'screen-saver'); } catch {}
   }
 });
