@@ -51,7 +51,9 @@ jobs:
         with:
           name: desktop-${{ matrix.os }}-${{ github.ref_name }}
           path: |
-            desktop/dist/**/*Setup*.exe
+            desktop/dist/**/*.exe
+            !desktop/dist/**/elevate.exe
+            !desktop/dist/**/*.blockmap
             desktop/dist/**/*.dmg
             desktop/dist/**/*.AppImage
             desktop/dist/**
@@ -61,7 +63,9 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           files: |
-            desktop/dist/**/*Setup*.exe
+            desktop/dist/**/*.exe
+            !desktop/dist/**/elevate.exe
+            !desktop/dist/**/*.blockmap
             desktop/dist/**/*.dmg
             desktop/dist/**/*.AppImage
         env:
