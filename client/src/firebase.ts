@@ -707,4 +707,153 @@ export const setupUnifiedTasksListener = (userId: string, callback: (tasks: any[
   });
 };
 
+// 期限チェック機能
+export const checkDeadlineReminders = async (userId: string): Promise<void> => {
+  try {
+    // ユーザー設定で期限アラートが無効化されている場合はスキップ
+    const userSettings = localStorage.getItem('userSettings');
+    if (userSettings) {
+      const settings = JSON.parse(userSettings);
+      if (!settings.notifications?.deadlineAlerts) {
+        return;
+      }
+    }
+    
+    const now = new Date();
+    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const in3Days = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+    
+    // ローカルストレージからタスクを取得
+    const savedTasks = localStorage.getItem(`tasks_${userId}`);
+    if (!savedTasks) return;
+    
+    const tasks = JSON.parse(savedTasks);
+    const reminders: any[] = [];
+    
+    tasks.forEach((task: any) => {
+      if (task.status === 'done') return;
+      
+      // タスクのリマインダー設定をチェック
+      if (task.reminderEnabled === false) return;
+      
+      let dueDate: Date | null = null;
+      
+      // 期限日時の解析
+      if (task.dueAt) {
+        dueDate = new Date(task.dueAt);
+      } else if (task.dueDate) {
+        dueDate = new Date(task.dueDate);
+      }
+      
+      if (!dueDate || isNaN(dueDate.getTime())) return;
+      
+      // タスクのリマインダータイミング設定に基づく通知判定
+      const reminderTiming = task.reminderTiming || '1day';
+      let reminderDate: Date;
+      
+      switch (reminderTiming) {
+        case '1week':
+          reminderDate = new Date(dueDate.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '3days':
+          reminderDate = new Date(dueDate.getTime() - 3 * 24 * 60 * 60 * 1000);
+          break;
+        case '1day':
+        default:
+          reminderDate = new Date(dueDate.getTime() - 24 * 60 * 60 * 1000);
+          break;
+      }
+      
+      // 既に過ぎた期限
+      if (dueDate < now) {
+        reminders.push({
+          task,
+          type: 'overdue',
+          message: `期限切れ: ${task.title}`,
+          urgency: 'high'
+        });
+      }
+      // リマインダー時期に到達
+      else if (now >= reminderDate) {
+        const timeLeft = Math.ceil((dueDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+        let message: string;
+        
+        if (timeLeft <= 1) {
+          message = `明日期限: ${task.title}`;
+        } else if (timeLeft <= 3) {
+          message = `${timeLeft}日後期限: ${task.title}`;
+        } else {
+          message = `${timeLeft}日後期限: ${task.title}`;
+        }
+        
+        reminders.push({
+          task,
+          type: 'due_reminder',
+          message,
+          urgency: timeLeft <= 1 ? 'high' : 'medium'
+        });
+      }
+    });
+    
+    // 重複通知を避けるため、最後の通知時刻をチェック
+    const lastNotifyKey = `lastDeadlineNotify_${userId}`;
+    const lastNotifyTime = localStorage.getItem(lastNotifyKey);
+    const lastNotify = lastNotifyTime ? new Date(lastNotifyTime) : new Date(0);
+    const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+    
+    // 6時間以内に通知済みなら高優先度のみ
+    const shouldNotifyAll = lastNotify < sixHoursAgo;
+    
+    for (const reminder of reminders) {
+      if (!shouldNotifyAll && reminder.urgency !== 'high') continue;
+      
+      // 通知を送信
+      addCloudNotification(
+        reminder.message,
+        `期限: ${reminder.task.dueDate || reminder.task.dueAt}`,
+        {
+          id: reminder.task.id,
+          type: 'deadline_reminder',
+          urgency: reminder.urgency,
+          dueDate: reminder.task.dueDate,
+          dueAt: reminder.task.dueAt,
+          title: reminder.task.title
+        }
+      );
+    }
+    
+    if (reminders.length > 0) {
+      localStorage.setItem(lastNotifyKey, now.toISOString());
+    }
+    
+  } catch (error) {
+    console.error('期限チェックに失敗しました:', error);
+  }
+};
+
+// 定期的な期限チェックを開始
+let deadlineCheckInterval: NodeJS.Timeout | null = null;
+
+export const startDeadlineChecker = (userId: string): void => {
+  // 既存のインターバルをクリア
+  if (deadlineCheckInterval) {
+    clearInterval(deadlineCheckInterval);
+  }
+  
+  // 15分ごとにチェック
+  deadlineCheckInterval = setInterval(() => {
+    checkDeadlineReminders(userId);
+  }, 15 * 60 * 1000);
+  
+  // 初回チェックを即座に実行
+  setTimeout(() => checkDeadlineReminders(userId), 5000);
+};
+
+export const stopDeadlineChecker = (): void => {
+  if (deadlineCheckInterval) {
+    clearInterval(deadlineCheckInterval);
+    deadlineCheckInterval = null;
+  }
+};
+
 export default app; 

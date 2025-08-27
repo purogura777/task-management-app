@@ -214,7 +214,7 @@ const Settings: React.FC = () => {
                 </ListItemIcon>
                 <ListItemText
                   primary="期限アラート"
-                  secondary="期限切れタスクの警告"
+                  secondary="期限切れ・期限間近タスクの自動通知（15分間隔でチェック）"
                 />
                 <ListItemSecondaryAction>
                   <Switch

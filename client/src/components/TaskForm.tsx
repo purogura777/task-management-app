@@ -54,6 +54,8 @@ interface Task {
   startDate?: string;
   startAt?: string;
   startAllDay?: boolean;
+  reminderEnabled?: boolean;
+  reminderTiming?: '1day' | '3days' | '1week';
   assignee: string;
   createdAt: string;
   updatedAt: string;
@@ -79,6 +81,8 @@ const TaskForm: React.FC<TaskFormProps> = ({ open, onClose, editingTask }) => {
   const [startAllDay, setStartAllDay] = useState<boolean>(true);
   const [startDate, setStartDate] = useState<Date | null>(new Date());
   const [startDateTime, setStartDateTime] = useState<Date | null>(new Date());
+  const [reminderEnabled, setReminderEnabled] = useState<boolean>(true);
+  const [reminderTiming, setReminderTiming] = useState<'1day' | '3days' | '1week'>('1day');
 
   const [formData, setFormData] = useState({
     title: '',
@@ -107,6 +111,9 @@ const TaskForm: React.FC<TaskFormProps> = ({ open, onClose, editingTask }) => {
       setStartAllDay(Boolean(editingTask.startAllDay ?? true));
       setStartDate(new Date(editingTask.startDate || editingTask.dueDate));
       setStartDateTime(editingTask.startAt ? new Date(editingTask.startAt) : new Date((editingTask.startDate || editingTask.dueDate) + 'T09:00:00'));
+      // リマインダー
+      setReminderEnabled(Boolean(editingTask.reminderEnabled ?? true));
+      setReminderTiming(editingTask.reminderTiming || '1day');
     } else {
       setFormData({
         title: '',
@@ -122,6 +129,8 @@ const TaskForm: React.FC<TaskFormProps> = ({ open, onClose, editingTask }) => {
       setStartAllDay(true);
       setStartDate(new Date());
       setStartDateTime(new Date());
+      setReminderEnabled(true);
+      setReminderTiming('1day');
     }
   }, [editingTask]);
 
@@ -172,6 +181,8 @@ const TaskForm: React.FC<TaskFormProps> = ({ open, onClose, editingTask }) => {
         startDate: baseStartDateISO,
         startAt: baseStartAtISO,
         startAllDay,
+        reminderEnabled,
+        reminderTiming,
         assignee: user.name || '未設定',
         createdAt: isEditing ? editingTask!.createdAt : new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -193,6 +204,8 @@ const TaskForm: React.FC<TaskFormProps> = ({ open, onClose, editingTask }) => {
           startAt: baseStartAtISO,
           startAllDay,
           recurrence: 'none',
+          reminderEnabled,
+          reminderTiming,
           assignee: user.name || '未設定',
           createdAt: isEditing ? editingTask!.createdAt : new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -403,35 +416,6 @@ const TaskForm: React.FC<TaskFormProps> = ({ open, onClose, editingTask }) => {
             </FormControl>
           </Box>
 
-          <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ja}>
-            <Box sx={{ display:'flex', gap:2, alignItems:'center' }}>
-              <Box sx={{ flex:1 }}>
-                {allDay ? (
-                  <DatePicker
-                    label="期限日（終日）"
-                    value={dueDate}
-                    onChange={(newValue) => setDueDate(newValue)}
-                    sx={{ width: '100%' }}
-                    disabled={isLoading}
-                    slots={{ openPickerIcon: CalendarToday }}
-                  />
-                ) : (
-                  <DateTimePicker
-                    label="期限（日時）"
-                    value={dueDateTime}
-                    onChange={(v) => { setDueDateTime(v); if (v) setDueDate(v); }}
-                    sx={{ width: '100%' }}
-                    disabled={isLoading}
-                  />
-                )}
-              </Box>
-              <FormControlLabel
-                control={<Switch checked={allDay} onChange={(e)=> setAllDay(e.target.checked)} />}
-                label="終日"
-              />
-            </Box>
-          </LocalizationProvider>
-
           {/* 開始日時（任意） */}
           <Box sx={{ mt: 2 }}>
             <FormControlLabel
@@ -470,6 +454,36 @@ const TaskForm: React.FC<TaskFormProps> = ({ open, onClose, editingTask }) => {
             )}
           </Box>
 
+          {/* 終了日時（期限） */}
+          <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ja}>
+            <Box sx={{ display:'flex', gap:2, alignItems:'center', mt: 2 }}>
+              <Box sx={{ flex:1 }}>
+                {allDay ? (
+                  <DatePicker
+                    label="期限日（終日）"
+                    value={dueDate}
+                    onChange={(newValue) => setDueDate(newValue)}
+                    sx={{ width: '100%' }}
+                    disabled={isLoading}
+                    slots={{ openPickerIcon: CalendarToday }}
+                  />
+                ) : (
+                  <DateTimePicker
+                    label="期限（日時）"
+                    value={dueDateTime}
+                    onChange={(v) => { setDueDateTime(v); if (v) setDueDate(v); }}
+                    sx={{ width: '100%' }}
+                    disabled={isLoading}
+                  />
+                )}
+              </Box>
+              <FormControlLabel
+                control={<Switch checked={allDay} onChange={(e)=> setAllDay(e.target.checked)} />}
+                label="終日"
+              />
+            </Box>
+          </LocalizationProvider>
+
           <Box sx={{ mt: 2 }}>
             <FormControl fullWidth>
               <InputLabel>繰り返し</InputLabel>
@@ -485,6 +499,36 @@ const TaskForm: React.FC<TaskFormProps> = ({ open, onClose, editingTask }) => {
                 <MenuItem value="monthly">毎月</MenuItem>
               </Select>
             </FormControl>
+          </Box>
+
+          {/* リマインダー設定 */}
+          <Box sx={{ mt: 2 }}>
+            <FormControlLabel
+              control={
+                <Switch 
+                  checked={reminderEnabled} 
+                  onChange={(e) => setReminderEnabled(e.target.checked)} 
+                  disabled={isLoading}
+                />
+              }
+              label="期限リマインダーを有効にする"
+            />
+            
+            {reminderEnabled && (
+              <FormControl fullWidth sx={{ mt: 1 }}>
+                <InputLabel>リマインダーのタイミング</InputLabel>
+                <Select
+                  value={reminderTiming}
+                  label="リマインダーのタイミング"
+                  onChange={(e) => setReminderTiming(e.target.value as '1day' | '3days' | '1week')}
+                  disabled={isLoading}
+                >
+                  <MenuItem value="1day">1日前</MenuItem>
+                  <MenuItem value="3days">3日前</MenuItem>
+                  <MenuItem value="1week">1週間前</MenuItem>
+                </Select>
+              </FormControl>
+            )}
           </Box>
 
           <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>

@@ -44,6 +44,7 @@ import {
   CheckCircle,
   Schedule,
   Warning,
+  MoreVert,
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
@@ -51,6 +52,9 @@ import { ja } from 'date-fns/locale';
 import { useAuth } from '../contexts/AuthContext';
 import { setupUnifiedTasksListener, saveTask, updateTask, deleteTask } from '../firebase';
 import { decryptData, encryptData, sanitizeInput } from '../utils/security';
+import TaskForm from './TaskForm';
+import TaskActions from './TaskActions';
+import toast from 'react-hot-toast';
 
 interface Task {
   id: string;
@@ -82,6 +86,9 @@ const ListView: React.FC = () => {
   const [orderBy, setOrderBy] = useState<OrderBy>('createdAt');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | null>(null);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [taskFormOpen, setTaskFormOpen] = useState(false);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -568,33 +575,16 @@ const ListView: React.FC = () => {
                             </Typography>
                           </TableCell>
                           <TableCell align="right">
-                            <Box sx={{ display: 'flex', gap: 1 }}>
-                              <Tooltip title="編集">
-                                <IconButton
-                                  size="small"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditingTask(task);
-                                    setDialogOpen(true);
-                                  }}
-                                >
-                                  <Edit />
-                                </IconButton>
-                              </Tooltip>
-                              <Tooltip title="削除">
-                                <IconButton
-                                  size="small"
-                                  color="error"
-                              onClick={async (e) => {
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
                                 e.stopPropagation();
-                                if (!user?.id) return;
-                                await deleteTask(user.id, task.id);
+                                setSelectedTask(task);
+                                setMenuAnchorEl(e.currentTarget);
                               }}
-                                >
-                                  <Delete />
-                                </IconButton>
-                              </Tooltip>
-                            </Box>
+                            >
+                              <MoreVert />
+                            </IconButton>
                           </TableCell>
                         </TableRow>
                       );
@@ -713,6 +703,38 @@ const ListView: React.FC = () => {
             </Button>
           </DialogActions>
         </Dialog>
+
+        {/* TaskForm */}
+        <TaskForm
+          open={taskFormOpen}
+          onClose={() => {
+            setTaskFormOpen(false);
+            setEditingTask(null);
+          }}
+          editingTask={editingTask}
+        />
+
+        {/* TaskActions */}
+        {selectedTask && (
+          <TaskActions
+            task={selectedTask}
+            onEdit={(task) => {
+              setEditingTask(task);
+              setTaskFormOpen(true);
+            }}
+            onDelete={async (taskId) => {
+              if (!user?.id) return;
+              await deleteTask(user.id, taskId);
+              toast.success('タスクを削除しました');
+            }}
+            anchorEl={menuAnchorEl}
+            onClose={() => {
+              setMenuAnchorEl(null);
+              setSelectedTask(null);
+            }}
+            userId={user?.id || ''}
+          />
+        )}
       </motion.div>
     </Box>
   );

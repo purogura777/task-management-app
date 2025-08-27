@@ -65,26 +65,75 @@ function buildContextMenuTemplate() {
 
 function createFloatingWindow() {
   if (floatWin) return floatWin;
-  // アイコンをデータURLに変換（.ico→PNG）
+  
+  console.log('=== フローティングウィンドウ作成開始 ===');
+  
+  // アイコンをデータURLに変換
   let iconDataUrl = '';
   try {
+    // 1. 保存済みアイコンデータをチェック
     const saved = store.get('icon_data');
     if (typeof saved === 'string' && saved.startsWith('data:')) {
       iconDataUrl = saved;
+      console.log('✓ フローティング: 保存済みアイコンを使用');
     } else {
+      // 2. ファイルシステムからアイコンを読み込み
       const base = process.resourcesPath || process.cwd();
+      const appPath = process.execPath ? path.dirname(process.execPath) : base;
+      const projectRoot = path.join(__dirname, '..');
+      
       const tryPaths = [
-        path.join(base, 'icon.png'),
+        // アプリ実行ファイルと同じディレクトリ
+        path.join(appPath, 'icon.ico'),
+        path.join(appPath, 'icon.png'),
+        // resourcesディレクトリ内
         path.join(base, 'icon.ico'),
-        path.join(base, 'build', 'icon.png'),
+        path.join(base, 'icon.png'),
+        // buildディレクトリ内
         path.join(base, 'build', 'icon.ico'),
+        path.join(base, 'build', 'icon.png'),
+        // プロジェクトルート
+        path.join(projectRoot, 'ChatGPT-Image-2025年8月19日-19_55_16.ico'),
+        path.join(projectRoot, 'icon.ico'),
+        path.join(projectRoot, 'icon.png'),
+        // 開発時のパス
+        path.join(__dirname, '..', 'ChatGPT-Image-2025年8月19日-19_55_16.ico'),
       ];
+      
+      console.log('フローティングアイコン検索パス:');
       for (const p of tryPaths) {
-        const img = nativeImage.createFromPath(p);
-        if (img && !img.isEmpty()) { iconDataUrl = img.toDataURL(); break; }
+        console.log('  -', p);
+        try {
+          const fs = require('fs');
+          if (fs.existsSync(p)) {
+            const img = nativeImage.createFromPath(p);
+            if (img && !img.isEmpty()) {
+              iconDataUrl = img.toDataURL();
+              console.log('✓ フローティング: ファイルアイコンを使用:', p);
+              // 成功したアイコンを保存
+              store.set('icon_data', iconDataUrl);
+              break;
+            }
+          }
+        } catch (e) {
+          console.log('  × 読み込み失敗:', e.message);
+        }
       }
     }
-  } catch {}
+    
+    // 3. フォールバックアイコンを生成
+    if (!iconDataUrl) {
+      const fallbackIcon = createFallbackIcon(128);
+      iconDataUrl = fallbackIcon.toDataURL();
+      console.log('✓ フローティング: フォールバックアイコンを生成');
+    }
+    
+  } catch (e) {
+    console.error('フローティングアイコン作成エラー:', e);
+    const fallbackIcon = createFallbackIcon(128);
+    iconDataUrl = fallbackIcon.toDataURL();
+    console.log('✓ フローティング: エラー時フォールバックアイコンを使用');
+  }
   floatWin = new BrowserWindow({
     width: 140,
     height: 140,
@@ -226,66 +275,123 @@ function createFloatingWindow() {
   return floatWin;
 }
 
-function createTray() {
-  // トレイアイコン（ビルドアイコンが無い場合のフォールバック）
-  let image;
+// 基本的な青いアイコンを生成する関数
+function createFallbackIcon(size = 16) {
   try {
+    // サイズに応じたbase64アイコンを生成
+    let iconBase64;
+    
+    if (size <= 16) {
+      // 16x16の青いアイコン（Tマーク付き）
+      iconBase64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAdklEQVR42mNgGFbAEZhBB/wHYXtgBhewtbU9j6L5PzCfAMPAwEBL0/8R1f8HphuBaXc8mpH1/wemZYFpS3yakcPgPzAtBUzL4dGMHP7/gWkpYFoOj2ZkN/wHpmWBaUt8mlGC6z8wXQBM3wGm7+PRjBJc/w/UAAAYtyGlUt9qCgAAAABJRU5ErkJggg==';
+    } else if (size <= 32) {
+      // 32x32の青いアイコン
+      iconBase64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAdklEQVR42u2XwQ2AMAwDGzACi7MZc7AJm7EZc5AJuEZp1QqQqESR/CRKEjt/bVyIiIiIiEhE5K1tW+u9d865pmla55xzznXOOeecC84559b/3jnnnAvOOeecc84555xzzjnnnHPOOeecc84555xzzjnnnHPOOeecc84555z7Aw+/rBq+EWVhWgAAAABJRU5ErkJggg==';
+    } else {
+      // 128x128の青いアイコン（大きなサイズ用）
+      iconBase64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAOWSURBVHic7Z3NaxNBFMafJK1f1YOKiKgHwYOKBy8ePOjJg+DBgwf/AA8ePHjw4MGDBw8ePHjw4MGDBw8ePHjw4MGDBw8ePHjw4MGDBw8ePHjw4MGDBw8ePHjw4MGDBw8ePHjw4MGDBw8ePHjw4MGDBw8ePHjw4MGDBw8ePHjw4MGDBw8ePHjw4MGDBw8ePHjw4MGDBw8ePHjw4MGDBw8ePHjw4MGDBw8ePHjw4MGDBw8ePHjw4MGDBw8ePHjw4MGDBw8ePHjw4MGDBw8ePHjw4MGDBw8ePHjw4MGDBw8ePHjw4MGDBw8ePHjw4MGDBw8ePHjw4MGDBw8ePHjw4MGDBw8ePHjw4MGDBw8ePHjw4MGDBw8ePHjw4MGDBw8ePHjw4MGDBw8ePHjw4MGDBw8ePHjw4MGDBw8ePHjw4MGDB48bAxdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXHDBBRdccMEFF1xwwQUXXPgPYj0Q9UKBWygAAAAASUVORK5CYII=';
+    }
+    
+    return nativeImage.createFromDataURL(iconBase64);
+  } catch (e) {
+    console.error('フォールバックアイコン生成エラー:', e);
+    return nativeImage.createEmpty();
+  }
+}
+
+function createTray() {
+  let image;
+  console.log('=== トレイアイコン作成開始 ===');
+  
+  try {
+    // 1. 保存済みアイコンデータをチェック
     const saved = store.get('icon_data');
     if (typeof saved === 'string' && saved.startsWith('data:')) {
       image = nativeImage.createFromDataURL(saved);
-      console.log('トレイ: 保存済みアイコンを使用');
+      if (image && !image.isEmpty()) {
+        console.log('✓ トレイ: 保存済みアイコンを使用');
+      } else {
+        image = null;
+      }
     }
+    
+    // 2. ファイルシステムからアイコンを読み込み
     if (!image || image.isEmpty()) {
-      // 複数の場所を探索
       const base = process.resourcesPath || process.cwd();
-      const parentDir = path.dirname(process.cwd());
+      const appPath = process.execPath ? path.dirname(process.execPath) : base;
+      const projectRoot = path.join(__dirname, '..');
+      
       const tryPaths = [
-        // 実行ファイルの隣
+        // アプリ実行ファイルと同じディレクトリ
+        path.join(appPath, 'icon.ico'),
+        path.join(appPath, 'icon.png'),
+        // resourcesディレクトリ内
         path.join(base, 'icon.ico'),
         path.join(base, 'icon.png'),
-        // build フォルダ内
+        // buildディレクトリ内
         path.join(base, 'build', 'icon.ico'),
         path.join(base, 'build', 'icon.png'),
+        // プロジェクトルート
+        path.join(projectRoot, 'ChatGPT-Image-2025年8月19日-19_55_16.ico'),
+        path.join(projectRoot, 'icon.ico'),
+        path.join(projectRoot, 'icon.png'),
         // 開発時のパス
         path.join(__dirname, '..', 'ChatGPT-Image-2025年8月19日-19_55_16.ico'),
-        path.join(parentDir, 'ChatGPT-Image-2025年8月19日-19_55_16.ico')
       ];
       
+      console.log('アイコン検索パス:');
       for (const p of tryPaths) {
+        console.log('  -', p);
         try {
-          const img = nativeImage.createFromPath(p);
-          if (img && !img.isEmpty()) {
-            image = img;
-            console.log('トレイ: ファイルアイコンを使用:', p);
-            break;
+          const fs = require('fs');
+          if (fs.existsSync(p)) {
+            const img = nativeImage.createFromPath(p);
+            if (img && !img.isEmpty()) {
+              image = img;
+              console.log('✓ トレイ: ファイルアイコンを使用:', p);
+              // 成功したアイコンを保存
+              store.set('icon_data', img.toDataURL());
+              break;
+            }
           }
         } catch (e) {
-          console.log('トレイアイコン読み込み失敗:', p, e.message);
+          console.log('  × 読み込み失敗:', e.message);
         }
       }
     }
-    if (!image || image.isEmpty()) throw new Error('no icon');
-  } catch {
-    // フォールバックとして小さな青いアイコンを生成
-    try {
-      const buf = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABklEQVR42mNgoDAwAwAKfwAA+wAAAAAAAElFTkSuQmCC', 'base64');
-      image = nativeImage.createFromBuffer(buf);
-      console.log('トレイ: デフォルトアイコンを使用');
-    } catch {
-      image = nativeImage.createEmpty();
-      console.log('トレイ: 空のアイコンを使用');
+    
+    // 3. フォールバックアイコンを生成
+    if (!image || image.isEmpty()) {
+      image = createFallbackIcon(16);
+      console.log('✓ トレイ: フォールバックアイコンを生成');
     }
+    
+  } catch (e) {
+    console.error('トレイアイコン作成エラー:', e);
+    image = createFallbackIcon(16);
+    console.log('✓ トレイ: エラー時フォールバックアイコンを使用');
   }
+  
+  // トレイを作成
+  if (!image || image.isEmpty()) {
+    image = createFallbackIcon(16);
+    console.log('✓ トレイ: 最終フォールバックアイコンを使用');
+  }
+  
+  console.log('トレイアイコンサイズ:', image.getSize());
   tray = new Tray(image);
+  
   const updateMenu = () => {
     const contextMenu = Menu.buildFromTemplate(buildContextMenuTemplate());
     tray.setContextMenu(contextMenu);
     tray.setToolTip(`TaskManager Desktop${store.get('pair_uid') ? '（連携中）' : ''}`);
   };
+  
   updateMenu();
-  // メニュー更新関数を他から呼べるように保存
   tray.__updateMenu = updateMenu;
   tray.on('click', () => { showFloating(); });
+  
+  console.log('=== トレイアイコン作成完了 ===');
 }
 
 function startLocalBridge() {
@@ -613,4 +719,108 @@ ipcMain.on('window:resize', (_e, { width, height }) => {
     console.log('Window resize failed:', e);
   }
 });
+
+// アプリケーションの初期化
+app.whenReady().then(() => {
+  console.log('=== アプリケーション初期化開始 ===');
+  
+  try {
+    // スキーム登録
+    app.setAsDefaultProtocolClient('taskapp');
+    
+    // トレイアイコンを作成
+    createTray();
+    console.log('✓ トレイアイコン作成完了');
+    
+    // フローティングウィンドウを作成
+    createFloatingWindow();
+    console.log('✓ フローティングウィンドウ作成完了');
+    
+    // 自動起動設定を有効化
+    if (autoStartEnabled) {
+      app.setLoginItemSettings({ openAtLogin: true });
+      console.log('✓ 自動起動を有効化');
+    }
+    
+    // ローカルブリッジを開始
+    startLocalBridge();
+    console.log('✓ ローカルブリッジ開始');
+    
+    // 保存された設定で自動接続
+    const savedUid = store.get('pair_uid');
+    const savedCfg = store.get('firebase_cfg');
+    if (savedUid && savedCfg) {
+      console.log('✓ 保存された設定で自動接続開始');
+      startCloudListener(savedUid, savedCfg);
+    } else {
+      console.log('- 保存された設定なし、セットアップ待機画面を表示');
+      openAuthWindow();
+    }
+    
+    console.log('=== アプリケーション初期化完了 ===');
+    
+  } catch (error) {
+    console.error('アプリケーション初期化エラー:', error);
+    
+    // エラー時でも最低限のUIを表示
+    try {
+      createTray();
+      createFloatingWindow();
+      openAuthWindow();
+    } catch (fallbackError) {
+      console.error('フォールバック処理も失敗:', fallbackError);
+    }
+  }
+});
+
+// ディープリンク処理（macOS/Linux）
+app.on('open-url', (event, urlStr) => {
+  event.preventDefault();
+  handleDeepLink(urlStr);
+});
+
+// ディープリンク処理（Windows）
+app.on('second-instance', (event, commandLine, workingDirectory) => {
+  const url = commandLine.find(arg => arg.startsWith('taskapp://'));
+  if (url) {
+    handleDeepLink(url);
+  }
+  
+  // セカンドインスタンスが起動された場合、既存のウィンドウを表示
+  if (floatWin) {
+    showFloating();
+  }
+});
+
+// アプリ終了時の処理
+app.on('before-quit', () => {
+  console.log('アプリケーション終了中...');
+  
+  try {
+    if (wss) {
+      wss.close();
+    }
+    if (webSocket) {
+      webSocket.close();
+    }
+  } catch (error) {
+    console.error('終了処理エラー:', error);
+  }
+});
+
+// Windowsでウィンドウが全て閉じられた時の処理
+app.on('window-all-closed', () => {
+  // トレイアプリなので、アプリケーションは終了しない
+  console.log('全ウィンドウが閉じられましたが、トレイアプリとして動作継続');
+});
+
+// macOSでアプリがアクティブになった時の処理
+app.on('activate', () => {
+  if (!floatWin) {
+    createFloatingWindow();
+  }
+  showFloating();
+});
+
+console.log('=== メインプロセス起動完了 ===');
 

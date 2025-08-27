@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { auth } from '../firebase';
+import { auth, startDeadlineChecker, stopDeadlineChecker } from '../firebase';
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut, createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth';
 
 interface User {
@@ -39,13 +39,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Firebase Authの状態を監視
     const unsub = onAuthStateChanged(auth, (fbUser) => {
       if (fbUser) {
-        setUser({ id: fbUser.uid, name: fbUser.displayName || 'ユーザー', email: fbUser.email || '' });
+        const userData = { id: fbUser.uid, name: fbUser.displayName || 'ユーザー', email: fbUser.email || '' };
+        setUser(userData);
+        // ログイン時に期限チェック機能を開始
+        startDeadlineChecker(fbUser.uid);
       } else {
         setUser(null);
+        // ログアウト時に期限チェック機能を停止
+        stopDeadlineChecker();
       }
       setIsLoading(false);
     });
-    return () => unsub();
+    return () => {
+      unsub();
+      stopDeadlineChecker();
+    };
   }, []);
 
   const login = async (email: string, password: string) => {

@@ -63,6 +63,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { setupUnifiedTasksListener, updateTask, deleteTask, saveTask } from '../firebase';
 import { decryptData } from '../utils/security';
 import TaskForm from './TaskForm';
+import TaskActions from './TaskActions';
 import toast from 'react-hot-toast';
 
 interface Task {
@@ -107,6 +108,8 @@ const KanbanBoard: React.FC = () => {
   const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | null>(null);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -609,13 +612,13 @@ const KanbanBoard: React.FC = () => {
                                         </Typography>
                                         <IconButton
                                           size="small"
-                                          onClick={() => {
-                                            setEditingTask(task);
-                                            setTaskFormOpen(true);
+                                          onClick={(e) => {
+                                            setSelectedTask(task);
+                                            setMenuAnchorEl(e.currentTarget);
                                           }}
                                           sx={{ color: 'text.secondary' }}
                                         >
-                                          <Edit sx={{ fontSize: compactMode ? 14 : 16 }} />
+                                          <MoreVert sx={{ fontSize: compactMode ? 14 : 16 }} />
                                         </IconButton>
                                       </Box>
 
@@ -705,6 +708,24 @@ const KanbanBoard: React.FC = () => {
         }}
         editingTask={editingTask}
       />
+
+      {/* タスクアクションメニュー */}
+      {selectedTask && (
+        <TaskActions
+          task={selectedTask}
+          onEdit={(task) => {
+            setEditingTask(task);
+            setTaskFormOpen(true);
+          }}
+          onDelete={handleDeleteTask}
+          anchorEl={menuAnchorEl}
+          onClose={() => {
+            setMenuAnchorEl(null);
+            setSelectedTask(null);
+          }}
+          userId={user?.id || ''}
+        />
+      )}
     </Box>
   );
 };
