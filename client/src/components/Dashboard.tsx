@@ -793,6 +793,12 @@ const Dashboard: React.FC = () => {
             sx: {
               borderRadius: 3,
               background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+              opacity: 1,
+            },
+          }}
+          sx={{
+            '& .MuiBackdrop-root': {
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
             },
           }}
         >
