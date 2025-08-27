@@ -187,6 +187,8 @@ const Settings: React.FC = () => {
             data: JSON.stringify(iconData)
           });
           const url = `taskapp://icon?${params.toString()}`;
+          console.log('デスクトップアプリにアイコン更新を送信:', url);
+          console.log('アイコンデータ:', iconData);
           window.location.href = url;
 
           // WebSocket経由でも送信（フォールバック）

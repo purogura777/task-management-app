@@ -594,19 +594,16 @@ ipcMain.on('open:menu', (_e, { x, y, adjustX, adjustY } = {}) => {
       
       let menuX, menuY;
       
+      // フローティングアイコンの真横にメニューを表示
       // 画面右端近くの場合は左側に表示
       if (winBounds.x + winBounds.width + menuWidth > screenWidth) {
-        menuX = winBounds.x - menuWidth - 5; // ウィンドウの左側
+        menuX = winBounds.x - menuWidth - 10; // ウィンドウの左側
       } else {
-        menuX = winBounds.x + winBounds.width + 5; // ウィンドウの右側
+        menuX = winBounds.x + winBounds.width + 10; // ウィンドウの右側
       }
       
-      // 画面下端近くの場合は上側に調整
-      if (winBounds.y + menuHeight > screenHeight) {
-        menuY = Math.max(0, screenHeight - menuHeight - 5);
-      } else {
-        menuY = winBounds.y;
-      }
+      // Y座標はウィンドウの上端に合わせる
+      menuY = winBounds.y;
       
       // 座標が0未満にならないよう調整
       menuX = Math.max(0, menuX);
@@ -615,14 +612,18 @@ ipcMain.on('open:menu', (_e, { x, y, adjustX, adjustY } = {}) => {
       console.log('メニュー表示位置:', { menuX, menuY, winBounds });
       
       menu.popup({ 
+        window: floatWin,
         x: menuX, 
         y: menuY, 
+        positioningItem: 0,
         callback: () => {
           try { if (floatWin) floatWin.setAlwaysOnTop(true, 'screen-saver'); } catch {}
         }
       });
     } else {
       menu.popup({ 
+        window: floatWin || undefined,
+        positioningItem: 0,
         callback: () => {
           try { if (floatWin) floatWin.setAlwaysOnTop(true, 'screen-saver'); } catch {}
         }
@@ -745,12 +746,16 @@ function handleDeepLink(urlStr) {
       const action = u.searchParams.get('action');
       const data = u.searchParams.get('data');
       
+      console.log('アイコン更新のdeep linkを受信:', { action, dataLength: data?.length });
+      
       if (action === 'update_icon' && data) {
         try {
-          const iconData = JSON.parse(data);
+          const iconData = JSON.parse(decodeURIComponent(data));
+          console.log('アイコンデータ解析成功:', iconData.fileName, iconData.fileType);
           updateFloatingIcon(iconData);
         } catch (parseError) {
           console.error('アイコンデータの解析に失敗:', parseError);
+          console.error('受信データ:', data);
         }
       }
     }

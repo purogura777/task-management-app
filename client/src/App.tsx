@@ -79,6 +79,12 @@ function AppContent() {
         }
         // デスクトップアプリが起動している場合のみ接続を試行
         connectLocalDesktopBridge();
+        
+        // 5秒後に再度接続確認
+        setTimeout(() => {
+          console.log('デスクトップ連携の再接続確認...');
+          connectLocalDesktopBridge();
+        }, 5000);
       } catch (error) {
         console.warn('デスクトップ連携初期化エラー:', error);
       }

@@ -39,20 +39,29 @@ export const desktopBridgeSendNotify = (title: string, body?: string, extra?: an
 let localSock: WebSocket | null = null;
 let localRetryCount = 0;
 let localRetryTimer: any = null;
-const MAX_LOCAL_RETRIES = 3; // 最大3回まで再試行
+const MAX_LOCAL_RETRIES = 10; // 最大10回まで再試行に増加
 
 export const connectLocalDesktopBridge = () => {
   // 既に接続試行中または成功している場合はスキップ
   if (localSock && localSock.readyState === WebSocket.CONNECTING) return;
   if (localSock && localSock.readyState === WebSocket.OPEN) return;
   
-  const tryPorts = Array.from({ length: 4 }, (_, i) => 17345 + i); // 17345-17348に縮小
+  const tryPorts = Array.from({ length: 8 }, (_, i) => 17345 + i); // 17345-17352に拡大
   let index = 0;
   
   const tryConnect = () => {
-    // 再試行回数制限
+    // 接続試行中のログ
+    console.log(`デスクトップブリッジ接続試行 ${localRetryCount + 1}/${MAX_LOCAL_RETRIES}`);
+    
+    // 再試行回数制限（緩和）
     if (localRetryCount >= MAX_LOCAL_RETRIES) {
-      console.log('デスクトップブリッジ接続を停止（最大再試行回数に達しました）');
+      console.log('デスクトップブリッジ接続を一時停止（最大再試行回数に達しました）');
+      // 完全に諦めるのではなく、30秒後に再度リセットして試行
+      setTimeout(() => {
+        localRetryCount = 0;
+        console.log('デスクトップブリッジ接続を再開します');
+        connectLocalDesktopBridge();
+      }, 30000);
       return;
     }
     

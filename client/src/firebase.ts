@@ -44,8 +44,16 @@ const addCloudNotification = async (title: string, body?: string, extra?: any) =
     
     // ローカルデスクトップアプリにも通知
     try {
-      const { localDesktopNotify } = await import('./utils/desktopBridge');
-      localDesktopNotify(title, body, extra);
+      const { localDesktopNotify, connectLocalDesktopBridge } = await import('./utils/desktopBridge');
+      
+      // 接続が切れている可能性があるため、再接続を試行
+      connectLocalDesktopBridge();
+      
+      // 少し待ってから通知送信
+      setTimeout(() => {
+        localDesktopNotify(title, body, extra);
+        console.log('デスクトップ通知送信完了:', { title, body, extra });
+      }, 500);
     } catch (e) {
       console.warn('Local desktop notification failed', e);
     }
