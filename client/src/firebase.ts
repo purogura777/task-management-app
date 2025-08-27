@@ -224,7 +224,7 @@ export const saveTask = async (userId: string, task: any) => {
       // ローカルストレージに保存
       localStorage.setItem(`tasks_${userId}`, JSON.stringify(tasks));
       notify('task_created', { Title: 'タスクを作成', Body: task.title, TaskId: task.id });
-      addCloudNotification('タスクを作成', task.title, { status: task.status, dueDate: task.dueDate, title: task.title });
+      addCloudNotification('タスクを作成', task.title, { id: task.id, status: task.status, dueDate: task.dueDate, title: task.title });
       
       // セキュリティログ
       const securityLogger = SecurityLogger.getInstance();
@@ -261,7 +261,7 @@ export const saveTask = async (userId: string, task: any) => {
     }
     localStorage.setItem(`tasks_${userId}`, JSON.stringify(tasks));
     notify('task_created', { Title: 'タスクを作成', Body: task.title, TaskId: task.id });
-    addCloudNotification('タスクを作成', task.title, { status: task.status, dueDate: task.dueDate, title: task.title });
+    addCloudNotification('タスクを作成', task.title, { id: task.id, status: task.status, dueDate: task.dueDate, title: task.title });
   } catch (error) {
     console.error('タスクの保存に失敗しました:', error);
     // Firebaseが失敗した場合はローカルストレージに保存
@@ -342,7 +342,7 @@ export const updateTask = async (userId: string, taskId: string, updates: any) =
       localStorage.setItem(`tasks_${userId}`, JSON.stringify(updatedTasks));
       if (updates?.status !== 'done') {
         notify('task_updated', { Title: 'タスクを更新', Body: updates?.title || '', TaskId: taskId });
-        addCloudNotification('タスクを更新', updates?.title || '', { status: updates?.status, dueDate: updates?.dueDate, title: updates?.title });
+        addCloudNotification('タスクを更新', updates?.title || '', { id: taskId, status: updates?.status, dueDate: updates?.dueDate, title: updates?.title });
       }
     }
   } catch (error) {
@@ -393,7 +393,7 @@ export const deleteTask = async (userId: string, taskId: string) => {
         localStorage.setItem(`tasks_${userId}`, JSON.stringify(filteredTasks));
         console.log('ローカルストレージからタスクを削除しました');
         notify('task_deleted', { Title: 'タスクを削除', Body: taskId, TaskId: taskId });
-        addCloudNotification('タスクを削除', taskId);
+        addCloudNotification('タスクを削除', taskId, { id: taskId });
         
         // 削除後に即座にコールバックを呼び出してリアルタイム更新を実行
         setTimeout(() => {
@@ -418,7 +418,7 @@ export const deleteTask = async (userId: string, taskId: string) => {
       const filteredTasks = tasks.filter((task: any) => task.id !== taskId);
       localStorage.setItem(`tasks_${userId}`, JSON.stringify(filteredTasks));
       notify('task_deleted', { Title: 'タスクを削除', Body: taskId, TaskId: taskId });
-      addCloudNotification('タスクを削除', taskId);
+      addCloudNotification('タスクを削除', taskId, { id: taskId });
     }
   } catch (error) {
     console.error('タスクの削除に失敗しました:', error);

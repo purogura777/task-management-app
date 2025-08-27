@@ -88,6 +88,8 @@ function createFloatingWindow() {
   floatWin = new BrowserWindow({
     width: 140,
     height: 140,
+    maxWidth: 650,
+    maxHeight: 320,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -138,24 +140,26 @@ function createFloatingWindow() {
       let items = [];
       let open = false;
       const render = () => {
+        badge.innerText = items.length.toString();
+        badge.style.display = items.length > 0 ? 'flex' : 'none';
         listEl.innerHTML = items.slice().reverse().map(function(x, idx){
           var dt = new Date(x.ts||Date.now());
           var time = dt.toLocaleString(undefined, { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' });
           var meta = [];
           if (x.dueDate) meta.push('期限: ' + x.dueDate);
           if (x.tTitle && x.tTitle !== x.title) meta.push('タスク: ' + x.tTitle);
-          return "<div class='item' data-i='"+idx+"'>"
+          return "<div class='item' data-i='"+idx+"' data-id='"+(x.id||'')+"'>"
             + "<div class='top'><div class='t'>" + (x.title||'通知') + "</div><div class='d'>" + time + "</div></div>"
             + (x.body?("<div class='b'>" + x.body + "</div>") : "")
             + (meta.length? ("<div class='b' style='opacity:.7'>"+ meta.join(' ・ ') +"</div>") : "")
-            + "<div style='margin-top:6px;display:flex;gap:6px'><button data-act='del' style='padding:4px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:transparent;color:#e5e7eb;cursor:pointer'>削除</button></div>"
+            + "<div style='margin-top:6px;display:flex;gap:6px'><button data-act='del' style='padding:4px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:transparent;color:#e5e7eb;cursor:pointer;font-size:10px'>削除</button></div>"
             + "</div>";
         }).join('');
         // 個別削除
         Array.from(listEl.querySelectorAll('button[data-act="del"]').values()).forEach(function(btn){
           btn.addEventListener('click', function(ev){
             ev.stopPropagation();
-            var parent = (ev.target as any).closest('.item');
+            var parent = ev.target.closest('.item');
             var i = Number(parent.getAttribute('data-i'));
             // 逆順描画なので実インデックスを変換
             var realIndex = items.length - 1 - i;
@@ -167,8 +171,16 @@ function createFloatingWindow() {
       content.addEventListener('click', ()=>{
         open = !open;
         listEl.style.display = open ? 'block' : 'none';
-        ipcRenderer.send('list:toggle', { open });
-        if (open){ badge.innerText='0'; badge.style.display='none'; }
+        // ウィンドウサイズを動的変更
+        ipcRenderer.send('window:resize', { 
+          width: open ? 620 : 140, 
+          height: open ? 300 : 140 
+        });
+        if (open && items.length > 0){ 
+          // リストを開いたら既読扱いでバッジをクリア
+          badge.innerText='0'; 
+          badge.style.display='none'; 
+        }
       });
       // クリックをメインプロセスにも通知（必要に応じて拡張）
       content.addEventListener('mouseup', ()=>{ try { ipcRenderer.send('float:clicked'); } catch{} });
@@ -177,13 +189,21 @@ function createFloatingWindow() {
       ipcRenderer.on('notify', (_, payload)=>{ 
         // done完了はバッジ対象外
         if (payload && payload.status === 'done') return;
-        items.push({ title: payload.title, body: payload.body, dueDate: payload.dueDate, tTitle: payload.tTitle, ts: Date.now() }); 
+        items.push({ 
+          id: payload.id || Date.now(), 
+          title: payload.title, 
+          body: payload.body, 
+          dueDate: payload.dueDate, 
+          tTitle: payload.tTitle, 
+          ts: Date.now() 
+        }); 
         if (items.length>50) items = items.slice(-50); 
         render(); 
-        const cnt = Number(badge.innerText||'0')+1; 
-        badge.innerText=String(cnt); 
-        badge.style.display='flex'; 
-        new Notification(payload.title||'通知', { body: payload.body||'' }); 
+        try {
+          new Notification(payload.title||'通知', { body: payload.body||'' }); 
+        } catch(e) {
+          console.log('Notification failed:', e);
+        }
       });
       ipcRenderer.on('badge:clear', ()=>{ badge.innerText='0'; badge.style.display='none'; });
       ipcRenderer.on('icon:update', (_e, dataUrl)=>{ try{ document.getElementById('panel').style.backgroundImage = "url('" + dataUrl + "')"; }catch{} });
@@ -213,31 +233,54 @@ function createTray() {
     const saved = store.get('icon_data');
     if (typeof saved === 'string' && saved.startsWith('data:')) {
       image = nativeImage.createFromDataURL(saved);
+      console.log('トレイ: 保存済みアイコンを使用');
     }
     if (!image || image.isEmpty()) {
-      // OS別に最適な形式を選択
+      // 複数の場所を探索
       const base = process.resourcesPath || process.cwd();
-      const ico = nativeImage.createFromPath(path.join(base, 'icon.ico'));
-      const png = nativeImage.createFromPath(path.join(base, 'icon.png'));
-      image = (!ico.isEmpty() ? ico : png);
+      const parentDir = path.dirname(process.cwd());
+      const tryPaths = [
+        // 実行ファイルの隣
+        path.join(base, 'icon.ico'),
+        path.join(base, 'icon.png'),
+        // build フォルダ内
+        path.join(base, 'build', 'icon.ico'),
+        path.join(base, 'build', 'icon.png'),
+        // 開発時のパス
+        path.join(__dirname, '..', 'ChatGPT-Image-2025年8月19日-19_55_16.ico'),
+        path.join(parentDir, 'ChatGPT-Image-2025年8月19日-19_55_16.ico')
+      ];
+      
+      for (const p of tryPaths) {
+        try {
+          const img = nativeImage.createFromPath(p);
+          if (img && !img.isEmpty()) {
+            image = img;
+            console.log('トレイ: ファイルアイコンを使用:', p);
+            break;
+          }
+        } catch (e) {
+          console.log('トレイアイコン読み込み失敗:', p, e.message);
+        }
+      }
     }
     if (!image || image.isEmpty()) throw new Error('no icon');
   } catch {
-    image = nativeImage.createEmpty();
+    // フォールバックとして小さな青いアイコンを生成
+    try {
+      const buf = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABklEQVR42mNgoDAwAwAKfwAA+wAAAAAAAElFTkSuQmCC', 'base64');
+      image = nativeImage.createFromBuffer(buf);
+      console.log('トレイ: デフォルトアイコンを使用');
+    } catch {
+      image = nativeImage.createEmpty();
+      console.log('トレイ: 空のアイコンを使用');
+    }
   }
   tray = new Tray(image);
   const updateMenu = () => {
     const contextMenu = Menu.buildFromTemplate(buildContextMenuTemplate());
     tray.setContextMenu(contextMenu);
     tray.setToolTip(`TaskManager Desktop${store.get('pair_uid') ? '（連携中）' : ''}`);
-    // アイコン描画が空ならフォールバック読み込み
-    try {
-      if (!image || image.isEmpty()) {
-        const base = process.resourcesPath || process.cwd();
-        const ico = nativeImage.createFromPath(path.join(base, 'build', 'icon.ico'));
-        if (ico && !ico.isEmpty()) tray.setImage(ico);
-      }
-    } catch {}
   };
   updateMenu();
   // メニュー更新関数を他から呼べるように保存
@@ -485,7 +528,7 @@ function openAuthWindow() {
     <p><button id='openWeb' style='padding:8px 12px;border-radius:8px;border:1px solid #ccc;cursor:pointer'>Webの設定画面を開く</button></p>
     <script>
       const { shell } = require('electron');
-      const url = process.env.WEB_APP_URL || 'https://task-management-app.vercel.app/settings';
+      const url = process.env.WEB_APP_URL || 'https://task-management-app-teal.vercel.app/settings';
       document.getElementById('openWeb').addEventListener('click', ()=> shell.openExternal(url));
     </script>
     <p style='color:#666'>この画面は自動で閉じます。</p>
@@ -557,5 +600,17 @@ ipcMain.on('auth:login', (_e, { uid, cfg }) => {
   if (authWin) { try { authWin.close(); } catch {} authWin = null; }
   startCloudListener(uid, cfg);
   if (floatWin) floatWin.webContents.send('notify', { title: 'ログイン成功', body: 'デスクトップ連携を開始します' });
+});
+
+// ウィンドウリサイズハンドラー
+ipcMain.on('window:resize', (_e, { width, height }) => {
+  try {
+    if (floatWin) {
+      floatWin.setSize(width, height);
+      floatWin.setAlwaysOnTop(true, 'screen-saver');
+    }
+  } catch (e) {
+    console.log('Window resize failed:', e);
+  }
 });
 
