@@ -40,6 +40,8 @@ import {
   Info,
   CheckCircle,
   Error,
+  CloudUpload,
+  Image,
 } from '@mui/icons-material';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -75,6 +77,8 @@ interface Settings {
 
 const Settings: React.FC = () => {
   const { isDarkMode, toggleTheme } = useTheme();
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>('');
   const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -125,6 +129,89 @@ const Settings: React.FC = () => {
     toast.success('すべてのデータを削除しました');
     setShowDeleteDialog(false);
     window.location.reload();
+  };
+
+  const handleIconFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // ファイルサイズチェック（10MB制限）
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('ファイルサイズは10MB以下にしてください');
+      return;
+    }
+
+    // ファイル形式チェック
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/mp4', 'video/webm'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('対応していないファイル形式です');
+      return;
+    }
+
+    setSelectedFile(file);
+    
+    // プレビュー用URLを生成
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setPreviewUrl(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleIconUpload = async () => {
+    if (!selectedFile || !user) return;
+
+    try {
+      // ファイルをbase64に変換
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const dataUrl = e.target?.result as string;
+        
+        // ローカルストレージに保存
+        localStorage.setItem('customDesktopIcon', dataUrl);
+        localStorage.setItem('customDesktopIconType', selectedFile.type);
+        localStorage.setItem('customDesktopIconName', selectedFile.name);
+
+        // デスクトップアプリに送信
+        try {
+          const iconData = {
+            type: 'icon_update',
+            dataUrl: dataUrl,
+            fileType: selectedFile.type,
+            fileName: selectedFile.name,
+          };
+
+          // Deep linkで送信
+          const params = new URLSearchParams({
+            action: 'update_icon',
+            data: JSON.stringify(iconData)
+          });
+          const url = `taskapp://icon?${params.toString()}`;
+          window.location.href = url;
+
+          // WebSocket経由でも送信（フォールバック）
+          if ((window as any).localDesktopBridge) {
+            (window as any).localDesktopBridge.send(JSON.stringify(iconData));
+          }
+
+          toast.success('アイコンを更新しました');
+          
+          // ファイル選択をリセット
+          setSelectedFile(null);
+          setPreviewUrl('');
+          
+        } catch (error) {
+          console.error('アイコン送信エラー:', error);
+          toast.error('デスクトップアプリへの送信に失敗しました');
+        }
+      };
+      
+      reader.readAsDataURL(selectedFile);
+      
+    } catch (error) {
+      console.error('アイコンアップロードエラー:', error);
+      toast.error('アイコンアップロードに失敗しました');
+    }
   };
 
   const getStorageInfo = () => {
@@ -505,6 +592,82 @@ const Settings: React.FC = () => {
                 }}
               >最新リリースURLを自動取得</Button>
             </Box>
+          </Paper>
+        </Grid>
+
+        {/* デスクトップアイコンカスタマイズ */}
+        <Grid item xs={12}>
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                デスクトップアイコンカスタマイズ
+              </Typography>
+              <Image color="primary" />
+            </Box>
+
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              デスクトップアプリのフローティングアイコンを自由にカスタマイズできます。
+              画像、動画、GIFファイルに対応しています。
+            </Typography>
+
+            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+              <input
+                accept="image/*,video/*,.gif"
+                style={{ display: 'none' }}
+                id="icon-upload-button"
+                type="file"
+                onChange={handleIconFileSelect}
+              />
+              <label htmlFor="icon-upload-button">
+                <Button
+                  variant="outlined"
+                  component="span"
+                  startIcon={<CloudUpload />}
+                  disabled={!isEditing}
+                >
+                  ファイルを選択
+                </Button>
+              </label>
+
+              {selectedFile && (
+                <Chip
+                  label={`${selectedFile.name} (${(selectedFile.size / 1024 / 1024).toFixed(2)}MB)`}
+                  onDelete={() => {
+                    setSelectedFile(null);
+                    setPreviewUrl('');
+                  }}
+                  disabled={!isEditing}
+                />
+              )}
+
+              <Button
+                variant="contained"
+                onClick={handleIconUpload}
+                disabled={!selectedFile || !isEditing}
+                startIcon={<Save />}
+              >
+                アイコンを更新
+              </Button>
+            </Box>
+
+            {previewUrl && (
+              <Box sx={{ mt: 2, maxWidth: 200 }}>
+                <Typography variant="body2" sx={{ mb: 1 }}>プレビュー:</Typography>
+                {selectedFile?.type.startsWith('image/') ? (
+                  <img
+                    src={previewUrl}
+                    alt="アイコンプレビュー"
+                    style={{ maxWidth: '100%', maxHeight: '120px', borderRadius: '8px' }}
+                  />
+                ) : selectedFile?.type.startsWith('video/') ? (
+                  <video
+                    src={previewUrl}
+                    controls
+                    style={{ maxWidth: '100%', maxHeight: '120px', borderRadius: '8px' }}
+                  />
+                ) : null}
+              </Box>
+            )}
           </Paper>
         </Grid>
       </Grid>

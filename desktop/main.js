@@ -71,13 +71,22 @@ function createFloatingWindow() {
   // アイコンをデータURLに変換
   let iconDataUrl = '';
   try {
-    // 1. 保存済みアイコンデータをチェック
-    const saved = store.get('icon_data');
-    if (typeof saved === 'string' && saved.startsWith('data:')) {
-      iconDataUrl = saved;
-      console.log('✓ フローティング: 保存済みアイコンを使用');
+    // 1. カスタムアイコンデータを最優先で確認
+    const customIcon = store.get('custom_icon_data');
+    if (typeof customIcon === 'string' && customIcon.startsWith('data:')) {
+      iconDataUrl = customIcon;
+      console.log('✓ フローティング: カスタムアイコンを使用');
     } else {
-      // 2. ファイルシステムからアイコンを読み込み
+      // 2. 保存済みアイコンデータをチェック
+      const saved = store.get('icon_data');
+      if (typeof saved === 'string' && saved.startsWith('data:')) {
+        iconDataUrl = saved;
+        console.log('✓ フローティング: 保存済みアイコンを使用');
+      }
+    }
+    
+    if (!iconDataUrl) {
+      // 3. ファイルシステムからアイコンを読み込み
       const base = process.resourcesPath || process.cwd();
       const appPath = process.execPath ? path.dirname(process.execPath) : base;
       const projectRoot = path.join(__dirname, '..');
@@ -121,7 +130,7 @@ function createFloatingWindow() {
       }
     }
     
-    // 3. フォールバックアイコンを生成
+    // 4. フォールバックアイコンを生成
     if (!iconDataUrl) {
       const fallbackIcon = createFallbackIcon(128);
       iconDataUrl = fallbackIcon.toDataURL();
@@ -164,7 +173,8 @@ function createFloatingWindow() {
       /* ドラッグ可能エッジを色で強調（太めのリング） */
       .ring { position:absolute; inset:0; border-radius:28px; -webkit-app-region: drag; pointer-events:none; box-shadow: inset 0 0 0 10px rgba(14,165,233,.55), inset 0 0 36px rgba(14,165,233,.30); }
       /* 端の16pxはドラッグ、中央96pxはクリック領域（広めのドラッグ） */
-      .content { position:absolute; width:96px; height:96px; left:16px; top:16px; -webkit-app-region: no-drag; cursor:pointer; border-radius:20px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); background-image: url('` + iconDataUrl + `'); background-size: cover; background-position: center; }
+      .content { position:absolute; width:96px; height:96px; left:16px; top:16px; -webkit-app-region: no-drag; cursor:pointer; border-radius:20px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); overflow: hidden; }
+      .icon-media { width: 100%; height: 100%; object-fit: cover; border-radius: 20px; }
       .badge { position:absolute; right:0px; top:0px; min-width:22px; height:22px; border-radius:11px; background:#e11d48; color:#fff; font-size:12px; display:flex; align-items:center; justify-content:center; padding:0 7px; }
       .list { position:absolute; left:156px; right:12px; top:12px; bottom:12px; width:auto; overflow:auto; background:rgba(17,24,39,.96); color:#e5e7eb; border-radius:12px; box-shadow:0 12px 28px rgba(0,0,0,.35); padding:12px; display:none; backdrop-filter: blur(8px); }
       .item { padding:8px 10px; border-radius:10px; background:rgba(255,255,255,0.03); }
@@ -178,6 +188,7 @@ function createFloatingWindow() {
       <div class='ring'></div>
       <div class='content' id='content'>
         <div class='badge' id='badge' style='display:none'>0</div>
+        <div id='iconContainer'></div>
       </div>
     </div>
     <div class='list' id='list'></div>
@@ -186,8 +197,36 @@ function createFloatingWindow() {
       const content = document.getElementById('content');
       const badge = document.getElementById('badge');
       const listEl = document.getElementById('list');
+      const iconContainer = document.getElementById('iconContainer');
       let items = [];
       let open = false;
+      
+      // カスタムアイコンの設定
+      function setupIcon() {
+        const iconData = '` + iconDataUrl + `';
+        const customIconType = '` + (store.get('custom_icon_type') || '') + `';
+        
+        if (iconData) {
+          if (customIconType && customIconType.startsWith('video/')) {
+            // 動画の場合
+            iconContainer.innerHTML = '<video class="icon-media" src="' + iconData + '" autoplay loop muted></video>';
+          } else if (customIconType && (customIconType === 'image/gif' || iconData.includes('data:image/gif'))) {
+            // GIFの場合
+            iconContainer.innerHTML = '<img class="icon-media" src="' + iconData + '" alt="カスタムアイコン">';
+          } else {
+            // 静止画の場合
+            iconContainer.innerHTML = '<img class="icon-media" src="' + iconData + '" alt="カスタムアイコン">';
+          }
+        } else {
+          // デフォルトアイコンの場合、背景画像を使用
+          content.style.backgroundImage = 'url(' + iconData + ')';
+          content.style.backgroundSize = 'cover';
+          content.style.backgroundPosition = 'center';
+        }
+      }
+      
+      // 初期化時にアイコンを設定
+      setupIcon();
       const render = () => {
         badge.innerText = items.length.toString();
         badge.style.display = items.length > 0 ? 'flex' : 'none';
@@ -609,9 +648,61 @@ function handleDeepLink(urlStr) {
       if (cfg && uid) startCloudListener(uid, cfg);
       // 初回ブートストラップ後は確実に表示
       showFloating();
+    } else if (u.host === 'icon') {
+      // アイコン更新
+      const action = u.searchParams.get('action');
+      const data = u.searchParams.get('data');
+      
+      if (action === 'update_icon' && data) {
+        try {
+          const iconData = JSON.parse(data);
+          updateFloatingIcon(iconData);
+        } catch (parseError) {
+          console.error('アイコンデータの解析に失敗:', parseError);
+        }
+      }
     }
   } catch (e) {
     console.warn('handleDeepLink error', e);
+  }
+}
+
+function updateFloatingIcon(iconData) {
+  try {
+    console.log('フローティングアイコンを更新:', iconData.fileName);
+    
+    // カスタムアイコンデータを保存
+    store.set('custom_icon_data', iconData.dataUrl);
+    store.set('custom_icon_type', iconData.fileType);
+    store.set('custom_icon_name', iconData.fileName);
+    
+    // フローティングウィンドウを再作成してアイコンを適用
+    if (floatWin) {
+      const wasVisible = floatWin.isVisible();
+      const bounds = floatWin.getBounds();
+      
+      floatWin.close();
+      floatWin = null;
+      
+      // 少し待ってから再作成
+      setTimeout(() => {
+        createFloatingWindow();
+        if (wasVisible) {
+          showFloating();
+          floatWin.setBounds(bounds);
+        }
+        
+        if (floatWin) {
+          floatWin.webContents.send('notify', { 
+            title: 'アイコン更新完了', 
+            body: iconData.fileName + ' に変更しました' 
+          });
+        }
+      }, 100);
+    }
+    
+  } catch (error) {
+    console.error('アイコン更新エラー:', error);
   }
 }
 
