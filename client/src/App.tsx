@@ -66,14 +66,26 @@ function AppContent() {
 
   // デスクトップブリッジへ接続（ユーザー毎のWS URL/トークンを使用）
   useEffect(() => {
-    if (!user) return;
-    try {
-      const wsUrl = localStorage.getItem('desktop_ws_url') || '';
-      const token = localStorage.getItem('desktop_pair_token') || '';
-      if (wsUrl && token) connectDesktopBridge(wsUrl, token);
-      connectLocalDesktopBridge();
-    } catch {}
-  }, [user?.id]);
+    if (!user || isLoading) return;
+    
+    // レンダリングが完了してから接続を開始
+    const timer = setTimeout(() => {
+      try {
+        console.log('デスクトップ連携を初期化中...');
+        const wsUrl = localStorage.getItem('desktop_ws_url') || '';
+        const token = localStorage.getItem('desktop_pair_token') || '';
+        if (wsUrl && token) {
+          connectDesktopBridge(wsUrl, token);
+        }
+        // デスクトップアプリが起動している場合のみ接続を試行
+        connectLocalDesktopBridge();
+      } catch (error) {
+        console.warn('デスクトップ連携初期化エラー:', error);
+      }
+    }, 1000); // 1秒待機してからWebSocket接続を開始
+    
+    return () => clearTimeout(timer);
+  }, [user?.id, isLoading]);
 
   // 期限リマインダー（60秒ごと）
   useEffect(() => {
