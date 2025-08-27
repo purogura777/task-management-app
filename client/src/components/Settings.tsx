@@ -532,8 +532,8 @@ const Settings: React.FC = () => {
                     const headers: any = { 'Accept': 'application/vnd.github+json' };
                     const toName = (a: any) => (a?.name || '').toLowerCase();
 
-                    // releases/latest を直接叩いてアセットを解決
-                    if (!url || /releases\/(latest|tag\//.test(url)) || /github\.com\//.test(url)) {
+                    // releases/latest や releases/tag/... やリポジトリURLの場合はAPIから直リンクを解決
+                    if (!url || /releases\/(latest|tag\//)/.test(url) || /github\.com\//.test(url)) {
                       const api = 'https://api.github.com/repos/purogura777/task-management-app/releases?per_page=10';
                       const res = await fetch(api, { headers });
                       if (!res.ok) throw new Error('GitHub API エラー');
