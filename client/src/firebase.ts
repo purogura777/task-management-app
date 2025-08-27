@@ -37,8 +37,18 @@ const addCloudNotification = async (title: string, body?: string, extra?: any) =
   try {
     const uid = auth.currentUser?.uid;
     if (!uid) return;
+    
+    // Firestoreに保存
     const ref = doc(collection(db, 'users', uid, 'notifications'));
     await setDoc(ref, { title, body: body || '', createdAt: serverTimestamp(), ...(extra || {}) });
+    
+    // ローカルデスクトップアプリにも通知
+    try {
+      const { localDesktopNotify } = await import('./utils/desktopBridge');
+      localDesktopNotify(title, body, extra);
+    } catch (e) {
+      console.warn('Local desktop notification failed', e);
+    }
   } catch (e) {
     console.warn('addCloudNotification failed', e);
   }

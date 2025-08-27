@@ -106,7 +106,23 @@ try {
 } catch {}
 
 export const localDesktopNotify = (title: string, body?: string, extra?: any) => {
-  try { localSock?.send(JSON.stringify({ type: 'notify', title, body, ...extra })); } catch {}
+  try {
+    if (!localSock) {
+      console.warn('デスクトップアプリ未接続: 通知を送信できません');
+      return;
+    }
+    
+    if (localSock.readyState !== WebSocket.OPEN) {
+      console.warn('WebSocket未接続状態:', localSock.readyState);
+      return;
+    }
+    
+    const message = { type: 'notify', title, body, ...extra };
+    console.log('デスクトップ通知送信:', message);
+    localSock.send(JSON.stringify(message));
+  } catch (error) {
+    console.error('デスクトップ通知送信エラー:', error);
+  }
 };
 
 // WebSocket接続をクリーンアップする関数

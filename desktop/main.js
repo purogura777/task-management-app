@@ -351,6 +351,14 @@ function createFallbackIcon(size = 16) {
 }
 
 function createTray() {
+  // 既存のトレイがあれば先に削除
+  if (tray) {
+    try {
+      tray.destroy();
+      tray = null;
+    } catch {}
+  }
+  
   let image;
   console.log('=== トレイアイコン作成開始 ===');
   
@@ -446,30 +454,84 @@ function createTray() {
 }
 
 function startLocalBridge() {
+  // 既存サーバーがあれば先に閉じる
+  if (wss) {
+    try {
+      wss.close();
+      wss = null;
+    } catch {}
+  }
+
   const tryStart = (port, attempt = 0) => {
     try {
       const server = new WebSocketServer({ host: '127.0.0.1', port });
+      
+      server.on('error', (err) => {
+        console.log('WebSocket server error on port', port, ':', err.code);
+        if (err.code === 'EADDRINUSE' && attempt < 10) {
+          console.log('Port', port, 'in use, trying', port + 1);
+          return tryStart(port + 1, attempt + 1);
+        }
+      });
+
+      server.on('listening', () => {
+        console.log('Local WS bridge started successfully on port', port);
+        wss = server;
+        localPort = port;
+        store.set('local_port', port);
+      });
+
       server.on('connection', (ws) => {
+        console.log('New WebSocket connection established');
+        
         ws.on('message', (raw) => {
           try {
             const data = JSON.parse(raw.toString());
+            console.log('Received message:', data.type);
+            
             if (data.type === 'notify' && floatWin) {
-              floatWin.webContents.send('notify', { title: data.title, body: data.body });
+              // 完了済みタスクは通知しない
+              if (data.status === 'done') {
+                console.log('Skipping notification for completed task');
+                return;
+              }
+              floatWin.webContents.send('notify', { 
+                title: data.title, 
+                body: data.body,
+                id: data.id,
+                status: data.status,
+                dueDate: data.dueDate,
+                description: data.description,
+                workspace: data.workspace
+              });
+            } else if (data.type === 'update_icon') {
+              // WebSocket経由でのアイコン更新
+              console.log('WebSocket経由でアイコン更新を受信');
+              updateFloatingIcon({
+                dataUrl: data.dataUrl,
+                fileType: data.fileType,
+                fileName: data.fileName
+              });
             }
-          } catch {}
+          } catch (e) {
+            console.error('Error processing message:', e);
+          }
         });
-        // 接続直後に未読を同期（必要ならローカル保持分を送る拡張余地）
-        ws.send(JSON.stringify({ type: 'hello', ok: true }));
+        
+        // 接続確認メッセージ
+        ws.send(JSON.stringify({ type: 'hello', ok: true, port: localPort }));
       });
-      wss = server;
-      localPort = port;
-      store.set('local_port', port);
-      console.log('Local WS bridge started on', port);
+
     } catch (e) {
-      if (attempt < 10) return tryStart(port + 1, attempt + 1);
-      console.warn('Failed to start local WS bridge', e);
+      console.error('Failed to create WebSocket server on port', port, ':', e);
+      if (attempt < 10) {
+        return tryStart(port + 1, attempt + 1);
+      }
+      console.warn('Failed to start local WS bridge after 10 attempts');
     }
   };
+
+  // 保存されたポートから開始、なければ17345から
   const saved = Number(store.get('local_port') || 17345);
   tryStart(saved);
 }
@@ -509,30 +571,7 @@ function connectRealtime() {
   }
 }
 
-app.whenReady().then(() => {
-  try { app.setAppUserModelId('com.taskmanager.desktophelper'); } catch {}
-  try { app.setLoginItemSettings({ openAtLogin: true }); autoStartEnabled = true; } catch {}
-  // プロトコルハンドラ登録（インストーラ経由で恒久化）
-  try {
-    if (process.defaultApp) {
-      if (process.argv.length >= 2) app.setAsDefaultProtocolClient('taskapp', process.execPath, [path.resolve(process.argv[1])]);
-    } else {
-      app.setAsDefaultProtocolClient('taskapp');
-    }
-    schemeReady = true;
-  } catch {}
-
-  createFloatingWindow();
-  createTray();
-  startLocalBridge();
-  connectRealtime();
-  // 既存ログインがあればクラウド購読を開始
-  const uid = store.get('pair_uid');
-  const cfg = store.get('firebase_cfg');
-  if (uid && cfg) startCloudListener(uid, cfg);
-  // 初回起動または未ログイン時はログイン画面を自動表示
-  if (!uid) openAuthWindow();
-});
+// 重複する初期化コードを削除（新しい初期化コードを使用）
 
 ipcMain.on('float:pos', (_, pos) => {
   store.set('float_pos', pos);
@@ -544,13 +583,36 @@ ipcMain.on('open:menu', (_e, { x, y, adjustX, adjustY } = {}) => {
     try { if (floatWin) floatWin.setAlwaysOnTop(false); } catch {}
     const menu = Menu.buildFromTemplate(buildContextMenuTemplate());
     
-    if (x != null && y != null && floatWin) {
-      // フローティングウィンドウの位置を取得
+    if (floatWin) {
+      // フローティングウィンドウの位置とサイズを取得
       const winBounds = floatWin.getBounds();
+      const { width: screenWidth, height: screenHeight } = require('electron').screen.getPrimaryDisplay().workAreaSize;
       
-      // メニューをウィンドウの右隣に表示
-      const menuX = winBounds.x + winBounds.width + 5;
-      const menuY = winBounds.y;
+      // メニューサイズの概算（アイテム数 × 高さ）
+      const menuHeight = buildContextMenuTemplate().length * 25; // 1アイテム約25px
+      const menuWidth = 200; // メニュー幅の概算
+      
+      let menuX, menuY;
+      
+      // 画面右端近くの場合は左側に表示
+      if (winBounds.x + winBounds.width + menuWidth > screenWidth) {
+        menuX = winBounds.x - menuWidth - 5; // ウィンドウの左側
+      } else {
+        menuX = winBounds.x + winBounds.width + 5; // ウィンドウの右側
+      }
+      
+      // 画面下端近くの場合は上側に調整
+      if (winBounds.y + menuHeight > screenHeight) {
+        menuY = Math.max(0, screenHeight - menuHeight - 5);
+      } else {
+        menuY = winBounds.y;
+      }
+      
+      // 座標が0未満にならないよう調整
+      menuX = Math.max(0, menuX);
+      menuY = Math.max(0, menuY);
+      
+      console.log('メニュー表示位置:', { menuX, menuY, winBounds });
       
       menu.popup({ 
         x: menuX, 
@@ -561,7 +623,6 @@ ipcMain.on('open:menu', (_e, { x, y, adjustX, adjustY } = {}) => {
       });
     } else {
       menu.popup({ 
-        window: floatWin, 
         callback: () => {
           try { if (floatWin) floatWin.setAlwaysOnTop(true, 'screen-saver'); } catch {}
         }

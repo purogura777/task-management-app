@@ -190,8 +190,16 @@ const Settings: React.FC = () => {
           window.location.href = url;
 
           // WebSocket経由でも送信（フォールバック）
-          if ((window as any).localDesktopBridge) {
-            (window as any).localDesktopBridge.send(JSON.stringify(iconData));
+          try {
+            const { localDesktopNotify } = await import('../utils/desktopBridge');
+            localDesktopNotify('アイコン更新', `${iconData.fileName}に変更`, {
+              type: 'update_icon',
+              dataUrl: iconData.dataUrl,
+              fileType: iconData.fileType,
+              fileName: iconData.fileName
+            });
+          } catch (e) {
+            console.warn('WebSocket送信に失敗:', e);
           }
 
           toast.success('アイコンを更新しました');

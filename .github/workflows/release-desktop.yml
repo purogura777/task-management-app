@@ -56,15 +56,24 @@ jobs:
             desktop/dist/*.AppImage
             desktop/dist/**
 
-      - name: Attach assets to GitHub Release
+      - name: Attach assets to GitHub Release (Windows)
+        if: matrix.os == 'windows-latest'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           files: |
             desktop/dist/*セットアップ*.exe
             desktop/dist/*ポータブル*.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Attach assets to GitHub Release (macOS)
+        if: matrix.os == 'macos-latest'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: |
             desktop/dist/*.dmg
-            desktop/dist/*.AppImage
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
