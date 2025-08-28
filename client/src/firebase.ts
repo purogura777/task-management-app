@@ -10,12 +10,12 @@ import { auth } from './firebase';
 // Firebase Console (https://console.firebase.google.com/) でプロジェクトを作成し、
 // プロジェクト設定 > 全般 > マイアプリ > Webアプリを追加して取得した設定を以下に貼り付けてください
 const firebaseConfig = {
-  apiKey: import.meta.env?.VITE_FIREBASE_API_KEY || "AIzaSyBO97MjlMFzvcDOJiCzx5fuWtrDttxqX1I",
-  authDomain: import.meta.env?.VITE_FIREBASE_AUTH_DOMAIN || "satsuki-task.firebaseapp.com",
-  projectId: import.meta.env?.VITE_FIREBASE_PROJECT_ID || "satsuki-task",
-  storageBucket: import.meta.env?.VITE_FIREBASE_STORAGE_BUCKET || "satsuki-task.firebasestorage.app",
-  messagingSenderId: import.meta.env?.VITE_FIREBASE_MESSAGING_SENDER_ID || "993443920962",
-  appId: import.meta.env?.VITE_FIREBASE_APP_ID || "1:993443920962:web:332a2b097d69bbe5b5c1db"
+  apiKey: import.meta.env?.VITE_FIREBASE_API_KEY || "",
+  authDomain: import.meta.env?.VITE_FIREBASE_AUTH_DOMAIN || "",
+  projectId: import.meta.env?.VITE_FIREBASE_PROJECT_ID || "",
+  storageBucket: import.meta.env?.VITE_FIREBASE_STORAGE_BUCKET || "",
+  messagingSenderId: import.meta.env?.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
+  appId: import.meta.env?.VITE_FIREBASE_APP_ID || ""
 };
 
 export const firebasePublicConfig = firebaseConfig;
@@ -34,31 +34,25 @@ export const storage = getStorage(app);
 
 // 通知レコードをFirestoreに追加（ログイン時のみ）
 const addCloudNotification = async (title: string, body?: string, extra?: any) => {
+  // 1) まずローカルDesktopへ即時送信（サインイン状態に依存させない）
+  try {
+    const { localDesktopNotify, connectLocalDesktopBridge } = await import('./utils/desktopBridge');
+    connectLocalDesktopBridge();
+    setTimeout(() => {
+      try { localDesktopNotify(title, body, extra); } catch {}
+    }, 300);
+  } catch (e) {
+    console.warn('Local desktop notification failed (pre-firestore)', e);
+  }
+
+  // 2) サインイン済みならFirestoreにも保存（失敗しても無視）
   try {
     const uid = auth.currentUser?.uid;
     if (!uid) return;
-    
-    // Firestoreに保存
     const ref = doc(collection(db, 'users', uid, 'notifications'));
     await setDoc(ref, { title, body: body || '', createdAt: serverTimestamp(), ...(extra || {}) });
-    
-    // ローカルデスクトップアプリにも通知
-    try {
-      const { localDesktopNotify, connectLocalDesktopBridge } = await import('./utils/desktopBridge');
-      
-      // 接続が切れている可能性があるため、再接続を試行
-      connectLocalDesktopBridge();
-      
-      // 少し待ってから通知送信
-      setTimeout(() => {
-        localDesktopNotify(title, body, extra);
-        console.log('デスクトップ通知送信完了:', { title, body, extra });
-      }, 500);
-    } catch (e) {
-      console.warn('Local desktop notification failed', e);
-    }
   } catch (e) {
-    console.warn('addCloudNotification failed', e);
+    console.warn('addCloudNotification Firestore write failed', e);
   }
 };
 
@@ -85,7 +79,8 @@ export const setupRealtimeListener = (userId: string, callback: (tasks: any[]) =
     console.log('Firebaseリスナーを設定中...', userId);
     
     // Firebaseが設定されていない場合はローカルストレージを使用
-    if (firebaseConfig.apiKey === "AIzaSyBO97MjlMFzvcDOJiCzx5fuWtrDttxqX1I") {
+    // 環境設定が空（未セット）の場合はローカル動作
+    if (!firebaseConfig.apiKey) {
       console.log('Firebase設定がダミーのため、ローカルストレージを使用します');
       
       // 重複データをクリア
@@ -206,7 +201,7 @@ export const saveTask = async (userId: string, task: any) => {
     }
 
     // Firebaseが設定されていない場合はローカルストレージのみ使用
-    if (firebaseConfig.apiKey === "AIzaSyBO97MjlMFzvcDOJiCzx5fuWtrDttxqX1I") {
+    if (!firebaseConfig.apiKey) {
       console.log('Firebase設定がダミーのため、ローカルストレージに保存します');
       
       // ローカルストレージから既存のタスクを取得
@@ -287,12 +282,35 @@ export const saveTask = async (userId: string, task: any) => {
     localStorage.setItem(`tasks_${userId}`, JSON.stringify(tasks));
     notify('task_created', { Title: 'タスクを作成', Body: task.title, TaskId: task.id });
     addCloudNotification('タスクを作成', task.title, { 
-      id: task.id, 
-      status: task.status, 
-      dueDate: task.dueDate, 
-      title: task.title,
-      description: task.description,
-      workspace: task.workspace
+      id: task.id,
+      tTitle: task.title,
+      status: task.status,
+      priority: task.priority,
+      assignee: task.assignee,
+      dueDate: task.dueDate,
+      dueAt: task.dueAt,
+      allDay: task.allDay,
+      startDate: task.startDate,
+      startAt: task.startAt,
+      recurrence: task.recurrence,
+      workspace: task.workspace,
+      project: task.project
+    });
+    notify('task_created', { Title: 'タスクを作成', Body: task.title, TaskId: task.id });
+    addCloudNotification('タスクを作成', task.title, { 
+      id: task.id,
+      tTitle: task.title,
+      status: task.status,
+      priority: task.priority,
+      assignee: task.assignee,
+      dueDate: task.dueDate,
+      dueAt: task.dueAt,
+      allDay: task.allDay,
+      startDate: task.startDate,
+      startAt: task.startAt,
+      recurrence: task.recurrence,
+      workspace: task.workspace,
+      project: task.project
     });
   } catch (error) {
     console.error('タスクの保存に失敗しました:', error);
@@ -374,7 +392,21 @@ export const updateTask = async (userId: string, taskId: string, updates: any) =
       localStorage.setItem(`tasks_${userId}`, JSON.stringify(updatedTasks));
       if (updates?.status !== 'done') {
         notify('task_updated', { Title: 'タスクを更新', Body: updates?.title || '', TaskId: taskId });
-        addCloudNotification('タスクを更新', updates?.title || '', { id: taskId, status: updates?.status, dueDate: updates?.dueDate, title: updates?.title });
+        addCloudNotification('タスクを更新', updates?.title || '', {
+          id: taskId,
+          tTitle: updates?.title,
+          status: updates?.status,
+          priority: updates?.priority,
+          assignee: updates?.assignee,
+          dueDate: updates?.dueDate,
+          dueAt: updates?.dueAt,
+          allDay: updates?.allDay,
+          startDate: updates?.startDate,
+          startAt: updates?.startAt,
+          recurrence: updates?.recurrence,
+          workspace: updates?.workspace,
+          project: updates?.project
+        });
       }
     }
   } catch (error) {
@@ -549,7 +581,7 @@ export const createProject = async (userId: string, name: string, visibility: 'p
     createdAt: new Date().toISOString(),
   };
 
-  if (firebaseConfig.apiKey === "AIzaSyBO97MjlMFzvcDOJiCzx5fuWtrDttxqX1I") {
+  if (!firebaseConfig.apiKey) {
     const projects: Project[] = readLocalJson('projects', []);
     projects.push(project);
     writeLocalJson('projects', projects);
@@ -564,7 +596,7 @@ export const createProject = async (userId: string, name: string, visibility: 'p
 };
 
 export const listMyProjects = async (userId: string): Promise<Project[]> => {
-  if (firebaseConfig.apiKey === "AIzaSyBO97MjlMFzvcDOJiCzx5fuWtrDttxqX1I") {
+  if (!firebaseConfig.apiKey) {
     const projects: Project[] = readLocalJson('projects', []);
     return projects.filter(p => p.ownerId === userId || p.memberIds.includes(userId));
   }
@@ -579,7 +611,7 @@ export const listMyProjects = async (userId: string): Promise<Project[]> => {
 };
 
 export const addProjectMember = async (projectId: string, targetUserId: string, role: ProjectRole = 'editor') => {
-  if (firebaseConfig.apiKey === "AIzaSyBO97MjlMFzvcDOJiCzx5fuWtrDttxqX1I") {
+  if (!firebaseConfig.apiKey) {
     const projects: Project[] = readLocalJson('projects', []);
     const idx = projects.findIndex(p => p.id === projectId);
     if (idx === -1) throw new Error('Project not found');
@@ -611,7 +643,7 @@ export const generateInvite = async (projectId: string, createdBy: string, role:
     expiresAt: new Date(Date.now() + expiresInHours * 3600 * 1000).toISOString(),
   };
 
-  if (firebaseConfig.apiKey === "AIzaSyBO97MjlMFzvcDOJiCzx5fuWtrDttxqX1I") {
+  if (!firebaseConfig.apiKey) {
     const invites: Record<string, ProjectInvite> = readLocalJson('projectInvites', {});
     invites[token] = invite;
     writeLocalJson('projectInvites', invites);
@@ -625,7 +657,7 @@ export const generateInvite = async (projectId: string, createdBy: string, role:
 };
 
 export const acceptInvite = async (token: string, userId: string) => {
-  if (firebaseConfig.apiKey === "AIzaSyBO97MjlMFzvcDOJiCzx5fuWtrDttxqX1I") {
+  if (!firebaseConfig.apiKey) {
     const invites: Record<string, ProjectInvite> = readLocalJson('projectInvites', {});
     const invite = invites[token];
     if (!invite) throw new Error('招待が見つかりません');
@@ -650,7 +682,7 @@ export const acceptInvite = async (token: string, userId: string) => {
 
 // 共有プロジェクトのタスク購読
 export const setupProjectTasksListener = (projectId: string, callback: (tasks: any[]) => void) => {
-  if (firebaseConfig.apiKey === "AIzaSyBO97MjlMFzvcDOJiCzx5fuWtrDttxqX1I") {
+  if (!firebaseConfig.apiKey) {
     const key = `project_tasks_${projectId}`;
     const push = () => {
       const tasks = readLocalJson(key, []);
@@ -674,7 +706,7 @@ export const setupProjectTasksListener = (projectId: string, callback: (tasks: a
 };
 
 export const saveProjectTask = async (projectId: string, task: any) => {
-  if (firebaseConfig.apiKey === "AIzaSyBO97MjlMFzvcDOJiCzx5fuWtrDttxqX1I") {
+  if (!firebaseConfig.apiKey) {
     const key = `project_tasks_${projectId}`;
     const tasks = readLocalJson(key, []);
     const idx = tasks.findIndex((t: any) => t.id === task.id);

@@ -23,6 +23,7 @@ function showFloating() {
   try {
     if (!floatWin) createFloatingWindow();
     floatWin.show();
+    try { floatWin.setIgnoreMouseEvents(false); } catch {}
     floatHidden = false;
     try { if (tray && tray.__updateMenu) tray.__updateMenu(); } catch {}
   } catch {}
@@ -31,6 +32,7 @@ function showFloating() {
 function hideFloating() {
   try {
     if (floatWin) floatWin.hide();
+    try { if (floatWin) floatWin.setIgnoreMouseEvents(true); } catch {}
     floatHidden = true;
     try { if (tray && tray.__updateMenu) tray.__updateMenu(); } catch {}
   } catch {}
@@ -163,7 +165,8 @@ function createFloatingWindow() {
     floatWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
     floatWin.on('focus', () => { try { floatWin.setAlwaysOnTop(true, 'screen-saver'); } catch {} });
     floatWin.on('blur', () => { try { floatWin.setAlwaysOnTop(true, 'screen-saver'); } catch {} });
-    floatWin.on('show', () => { try { floatWin.setAlwaysOnTop(true, 'screen-saver'); } catch {} });
+    floatWin.on('show', () => { try { floatWin.setAlwaysOnTop(true, 'screen-saver'); floatWin.setIgnoreMouseEvents(false); } catch {} });
+    floatWin.on('hide', () => { try { floatWin.setIgnoreMouseEvents(true); } catch {} });
   } catch {}
   floatWin.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(`
     <html><head><style>
@@ -174,7 +177,7 @@ function createFloatingWindow() {
       .ring { position:absolute; inset:0; border-radius:28px; -webkit-app-region: drag; pointer-events:none; box-shadow: inset 0 0 0 10px rgba(14,165,233,.55), inset 0 0 36px rgba(14,165,233,.30); }
       /* 端の16pxはドラッグ、中央96pxはクリック領域（広めのドラッグ） */
       .content { position:absolute; width:96px; height:96px; left:16px; top:16px; -webkit-app-region: no-drag; cursor:pointer; border-radius:20px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); overflow: hidden; }
-      .icon-media { width: 100%; height: 100%; object-fit: cover; border-radius: 20px; }
+      .icon-media { width: 100%; height: 100%; object-fit: cover; border-radius: 20px; -webkit-user-drag: none; user-drag: none; user-select: none; pointer-events: none; }
       .badge { position:absolute; right:0px; top:0px; min-width:22px; height:22px; border-radius:11px; background:#e11d48; color:#fff; font-size:12px; display:flex; align-items:center; justify-content:center; padding:0 7px; }
       .list { position:absolute; left:156px; right:12px; top:12px; bottom:12px; width:auto; overflow:auto; background:rgba(17,24,39,.96); color:#e5e7eb; border-radius:12px; box-shadow:0 12px 28px rgba(0,0,0,.35); padding:12px; display:none; backdrop-filter: blur(8px); }
       .item { padding:8px 10px; border-radius:10px; background:rgba(255,255,255,0.03); }
@@ -208,14 +211,14 @@ function createFloatingWindow() {
         
         if (iconData) {
           if (customIconType && customIconType.startsWith('video/')) {
-            // 動画の場合
-            iconContainer.innerHTML = '<video class="icon-media" src="' + iconData + '" autoplay loop muted></video>';
+            // 動画の場合（ドラッグ防止のためdraggable=false, pointer-eventsはCSSで無効）
+            iconContainer.innerHTML = '<video class="icon-media" src="' + iconData + '" autoplay loop muted playsinline draggable="false"></video>';
           } else if (customIconType && (customIconType === 'image/gif' || iconData.includes('data:image/gif'))) {
             // GIFの場合
-            iconContainer.innerHTML = '<img class="icon-media" src="' + iconData + '" alt="カスタムアイコン">';
+            iconContainer.innerHTML = '<img class="icon-media" src="' + iconData + '" alt="カスタムアイコン" draggable="false">';
           } else {
             // 静止画の場合
-            iconContainer.innerHTML = '<img class="icon-media" src="' + iconData + '" alt="カスタムアイコン">';
+            iconContainer.innerHTML = '<img class="icon-media" src="' + iconData + '" alt="カスタムアイコン" draggable="false">';
           }
         } else {
           // デフォルトアイコンの場合、背景画像を使用
@@ -234,7 +237,11 @@ function createFloatingWindow() {
           var dt = new Date(x.ts||Date.now());
           var time = dt.toLocaleString(undefined, { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' });
           var meta = [];
-          if (x.dueDate) meta.push('期限: ' + x.dueDate);
+          if (x.dueDate) meta.push('期限: ' + x.dueDate + (x.dueAt?(' ' + new Date(x.dueAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})) : ''));
+          if (x.priority) meta.push('優先度: ' + x.priority);
+          if (x.assignee) meta.push('担当: ' + x.assignee);
+          if (x.workspace) meta.push('WS: ' + x.workspace);
+          if (x.project) meta.push('PJ: ' + x.project);
           if (x.tTitle && x.tTitle !== x.title) meta.push('タスク: ' + x.tTitle);
           return "<div class='item' data-i='"+idx+"' data-id='"+(x.id||'')+"'>"
             + "<div class='top'><div class='t'>" + (x.title||'通知') + "</div><div class='d'>" + time + "</div></div>"
@@ -586,7 +593,10 @@ ipcMain.on('open:menu', (_e, { x, y, adjustX, adjustY } = {}) => {
     if (floatWin) {
       // フローティングウィンドウの位置とサイズを取得
       const winBounds = floatWin.getBounds();
-      const { width: screenWidth, height: screenHeight } = require('electron').screen.getPrimaryDisplay().workAreaSize;
+      const { screen } = require('electron');
+      // アイコンが存在するディスプレイの作業領域を取得
+      const display = screen.getDisplayNearestPoint({ x: winBounds.x, y: winBounds.y });
+      const work = display.workArea; // { x, y, width, height }
       
       // メニューサイズの概算（アイテム数 × 高さ）
       const menuHeight = buildContextMenuTemplate().length * 25; // 1アイテム約25px
@@ -596,18 +606,19 @@ ipcMain.on('open:menu', (_e, { x, y, adjustX, adjustY } = {}) => {
       
       // フローティングアイコンの真横にメニューを表示
       // 画面右端近くの場合は左側に表示
-      if (winBounds.x + winBounds.width + menuWidth > screenWidth) {
+      if (winBounds.x + winBounds.width + menuWidth > work.x + work.width) {
         menuX = winBounds.x - menuWidth - 10; // ウィンドウの左側
       } else {
         menuX = winBounds.x + winBounds.width + 10; // ウィンドウの右側
       }
       
-      // Y座標はウィンドウの上端に合わせる
+      // Y座標はウィンドウの上端に合わせる。作業領域内に収める
       menuY = winBounds.y;
+      if (menuY + menuHeight > work.y + work.height) menuY = Math.max(work.y, work.y + work.height - menuHeight);
       
       // 座標が0未満にならないよう調整
-      menuX = Math.max(0, menuX);
-      menuY = Math.max(0, menuY);
+      menuX = Math.max(work.x, menuX);
+      menuY = Math.max(work.y, menuY);
       
       console.log('メニュー表示位置:', { menuX, menuY, winBounds });
       
