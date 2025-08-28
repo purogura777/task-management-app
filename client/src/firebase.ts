@@ -4,7 +4,6 @@ import { getFirestore, onSnapshot, collection, doc, setDoc, updateDoc, deleteDoc
 import { getStorage } from 'firebase/storage';
 import { secureLocalStorage, SecurityLogger } from './utils/security';
 import { notify } from './utils/notifications';
-import { auth } from './firebase';
 
 // Firebase設定 - 実際のプロジェクトの設定に置き換えてください
 // Firebase Console (https://console.firebase.google.com/) でプロジェクトを作成し、
@@ -20,17 +19,18 @@ const firebaseConfig = {
 
 export const firebasePublicConfig = firebaseConfig;
 
-// Firebase初期化
-const app = initializeApp(firebaseConfig);
+// Firebase初期化（環境変数が未設定の場合は初期化しない）
+const hasFirebase = !!firebaseConfig.apiKey;
+const app = hasFirebase ? initializeApp(firebaseConfig) : (undefined as any);
 
 // 認証
-export const auth = getAuth(app);
+export const auth = hasFirebase ? getAuth(app) : ({} as any);
 
 // Firestore
-export const db = getFirestore(app);
+export const db = hasFirebase ? getFirestore(app) : ({} as any);
 
 // Storage
-export const storage = getStorage(app);
+export const storage = hasFirebase ? getStorage(app) : ({} as any);
 
 // 通知レコードをFirestoreに追加（ログイン時のみ）
 const addCloudNotification = async (title: string, body?: string, extra?: any) => {
