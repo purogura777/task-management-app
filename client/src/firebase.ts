@@ -19,6 +19,21 @@ const firebaseConfig = {
 
 export const firebasePublicConfig = firebaseConfig;
 
+// Firestore用にundefinedを許容しないためのサニタイズ
+const sanitizeForFirestore = (input: any): any => {
+  if (input === undefined) return null;
+  if (input === null) return null;
+  if (Array.isArray(input)) return input.map(sanitizeForFirestore);
+  if (typeof input === 'object') {
+    const out: any = {};
+    for (const [k, v] of Object.entries(input)) {
+      out[k] = v === undefined ? null : sanitizeForFirestore(v);
+    }
+    return out;
+  }
+  return input;
+};
+
 // Firebase初期化（本番は必ず初期化される設定）
 const app = initializeApp(firebaseConfig);
 
@@ -253,7 +268,7 @@ export const saveTask = async (userId: string, task: any) => {
     }
     
     const taskRef = doc(db, 'users', userId, 'tasks', task.id);
-    await setDoc(taskRef, task);
+    await setDoc(taskRef, sanitizeForFirestore(task));
     console.log('タスク保存成功');
     
     // ローカルストレージにも保存（バックアップ）
@@ -378,7 +393,7 @@ export const updateTask = async (userId: string, taskId: string, updates: any) =
     }
     
     const taskRef = doc(db, 'users', userId, 'tasks', taskId);
-    await updateDoc(taskRef, updates);
+    await updateDoc(taskRef, sanitizeForFirestore(updates));
     console.log('タスク更新成功');
     
     // ローカルストレージも更新
@@ -717,7 +732,7 @@ export const saveProjectTask = async (projectId: string, task: any) => {
   }
 
   const ref = doc(collection(db, 'projects', projectId, 'tasks'));
-  await setDoc(doc(db, 'projects', projectId, 'tasks', task.id || ref.id), { ...task, id: task.id || ref.id });
+  await setDoc(doc(db, 'projects', projectId, 'tasks', task.id || ref.id), sanitizeForFirestore({ ...task, id: task.id || ref.id }));
 };
 
 export const updateProjectTask = async (projectId: string, taskId: string, updates: any) => {
@@ -735,7 +750,7 @@ export const updateProjectTask = async (projectId: string, taskId: string, updat
   }
 
   const ref = doc(db, 'projects', projectId, 'tasks', taskId);
-  await updateDoc(ref, updates);
+  await updateDoc(ref, sanitizeForFirestore(updates));
 };
 
 export const deleteProjectTask = async (projectId: string, taskId: string) => {

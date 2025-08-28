@@ -448,14 +448,54 @@ function createTray() {
   tray = new Tray(image);
   
   const updateMenu = () => {
-    const contextMenu = Menu.buildFromTemplate(buildContextMenuTemplate());
-    tray.setContextMenu(contextMenu);
+    // 既定の自動表示は抑止し、位置を指定して自前で開く
+    try { tray.setContextMenu(Menu.buildFromTemplate([])); } catch {}
     tray.setToolTip(`TaskManager Desktop${store.get('pair_uid') ? '（連携中）' : ''}`);
   };
   
   updateMenu();
   tray.__updateMenu = updateMenu;
   tray.on('click', () => { showFloating(); });
+  // 右クリック時はフローティング/トレイ位置の近くに表示
+  tray.on('right-click', (_event, bounds) => {
+    try { if (floatWin) floatWin.setAlwaysOnTop(false); } catch {}
+    const menu = Menu.buildFromTemplate(buildContextMenuTemplate());
+    let x, y;
+    try {
+      const { screen } = require('electron');
+      const menuWidth = 200;
+      const menuHeight = buildContextMenuTemplate().length * 25;
+      if (bounds && typeof bounds.x === 'number') {
+        const display = screen.getDisplayNearestPoint({ x: bounds.x, y: bounds.y });
+        const work = display.workArea;
+        if (bounds.x + bounds.width + menuWidth > work.x + work.width) {
+          x = Math.max(work.x, bounds.x - menuWidth - 10);
+        } else {
+          x = Math.max(work.x, bounds.x + bounds.width + 10);
+        }
+        y = Math.max(work.y, Math.min(bounds.y, work.y + work.height - menuHeight));
+      } else if (floatWin) {
+        const wb = floatWin.getBounds();
+        const display = screen.getDisplayNearestPoint({ x: wb.x, y: wb.y });
+        const work = display.workArea;
+        if (wb.x + wb.width + menuWidth > work.x + work.width) {
+          x = Math.max(work.x, wb.x - menuWidth - 10);
+        } else {
+          x = Math.max(work.x, wb.x + wb.width + 10);
+        }
+        y = Math.max(work.y, Math.min(wb.y, work.y + work.height - menuHeight));
+      }
+    } catch {}
+    try {
+      if (typeof x === 'number' && typeof y === 'number') {
+        tray.popUpContextMenu(menu, { x, y });
+      } else {
+        tray.popUpContextMenu(menu);
+      }
+    } finally {
+      try { if (floatWin) floatWin.setAlwaysOnTop(true, 'screen-saver'); } catch {}
+    }
+  });
   
   console.log('=== トレイアイコン作成完了 ===');
 }

@@ -135,11 +135,8 @@ const Settings: React.FC = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // ファイルサイズチェック（10MB制限）
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('ファイルサイズは10MB以下にしてください');
-      return;
-    }
+    // ファイルサイズ上限（入力は許容、後段で再エンコードして圧縮）
+    const MAX_OUTPUT_BYTES = 5 * 1024 * 1024; // 5MB 目標
 
     // ファイル形式チェック
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/mp4', 'video/webm'];
@@ -148,14 +145,89 @@ const Settings: React.FC = () => {
       return;
     }
 
-    setSelectedFile(file);
-    
-    // プレビュー用URLを生成
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setPreviewUrl(e.target?.result as string);
+    // 画像/動画を安全なデータURLに前処理
+    const preprocess = async (f: File): Promise<{ dataUrl: string; mime: string; name: string; }> => {
+      // 動画はサムネイル（最初のフレーム）静止画に変換
+      if (f.type.startsWith('video/')) {
+        try {
+          const url = URL.createObjectURL(f);
+          const video = document.createElement('video');
+          video.src = url;
+          video.muted = true;
+          await new Promise((res) => { video.onloadeddata = () => res(null as any); });
+          video.currentTime = 0.1;
+          const canvas = document.createElement('canvas');
+          const target = 256; // アイコン用に縮小
+          const ratio = Math.max(target / (video.videoWidth || 1), target / (video.videoHeight || 1));
+          canvas.width = Math.round((video.videoWidth || target) * ratio);
+          canvas.height = Math.round((video.videoHeight || target) * ratio);
+          const ctx = canvas.getContext('2d')!;
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL('image/png', 0.92);
+          URL.revokeObjectURL(url);
+          return { dataUrl, mime: 'image/png', name: (f.name.replace(/\.[^.]+$/, '') || 'thumb') + '.png' };
+        } catch {
+          // 失敗時はそのままプレビューのみ
+          const dataUrl = await new Promise<string>((ok) => { const r = new FileReader(); r.onload = e => ok(e.target?.result as string); r.readAsDataURL(f); });
+          return { dataUrl, mime: 'image/png', name: 'thumb.png' };
+        }
+      }
+
+      // 画像: EXIF回転補正 + 256〜512px程度に縮小しつつPNGに
+      const arrayBuf = await f.arrayBuffer();
+      // EXIFは簡易的にOrientation 6/8のみ考慮（縦横回転）
+      let orientation = 1; // 1: そのまま
+      try {
+        const view = new DataView(arrayBuf);
+        // 極簡易EXIFスキャン
+        for (let i = 2; i < Math.min(view.byteLength, 65536) - 1; i++) {
+          if (view.getUint16(i, false) === 0xFFE1 /* APP1 */) {
+            const len = view.getUint16(i + 2, false);
+            const exif = new Uint8Array(arrayBuf, i + 4, len - 2);
+            const str = new TextDecoder().decode(exif);
+            const m = str.match(/Orientation\x00\x02\x00\x00\x00\x00\x00\x00([\s\S])/);
+            if (m && m[1]) orientation = m[1].charCodeAt(0) || 1;
+            break;
+          }
+        }
+      } catch {}
+
+      const blobUrl = URL.createObjectURL(new Blob([arrayBuf]));
+      const img = new Image();
+      img.src = blobUrl;
+      await new Promise((res) => { img.onload = () => res(null as any); });
+      const MAX_SIDE = 256; // フローティング用
+      const scale = Math.min(MAX_SIDE / img.width, MAX_SIDE / img.height, 1);
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      if (orientation === 6 || orientation === 8) {
+        canvas.width = h; canvas.height = w;
+      } else {
+        canvas.width = w; canvas.height = h;
+      }
+      const ctx = canvas.getContext('2d')!;
+      // 回転描画
+      if (orientation === 6) { // 90deg CW
+        ctx.translate(canvas.width, 0); ctx.rotate(Math.PI / 2);
+      } else if (orientation === 8) { // 90deg CCW
+        ctx.translate(0, canvas.height); ctx.rotate(-Math.PI / 2);
+      }
+      ctx.drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(blobUrl);
+      // 圧縮（目標5MB以下）
+      let dataUrl = canvas.toDataURL('image/png', 0.92);
+      if (dataUrl.length > MAX_OUTPUT_BYTES * 1.37) { // 粗い目安
+        dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      }
+      return { dataUrl, mime: dataUrl.startsWith('data:image/jpeg') ? 'image/jpeg' : 'image/png', name: (f.name.replace(/\.[^.]+$/, '') || 'icon') + (dataUrl.startsWith('data:image/jpeg') ? '.jpg' : '.png') };
     };
-    reader.readAsDataURL(file);
+
+    (async () => {
+      const processed = await preprocess(file);
+      setSelectedFile(new File([await (await fetch(processed.dataUrl)).blob()], processed.name, { type: processed.mime }));
+      setPreviewUrl(processed.dataUrl);
+    })();
   };
 
   const handleIconUpload = async () => {
