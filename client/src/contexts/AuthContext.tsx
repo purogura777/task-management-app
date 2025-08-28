@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { auth, startDeadlineChecker, stopDeadlineChecker, firebaseEnabled } from '../firebase';
+import { auth, startDeadlineChecker, stopDeadlineChecker } from '../firebase';
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut, createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth';
 
 interface User {
@@ -36,20 +36,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Firebase未設定ならローカルユーザーで起動
-    if (!firebaseEnabled) {
-      try {
-        const raw = localStorage.getItem('user');
-        const localUser = raw ? JSON.parse(raw) : { id: 'local', name: 'ローカルユーザー', email: '' };
-        localStorage.setItem('user', JSON.stringify(localUser));
-        setUser(localUser);
-      } catch {
-        setUser({ id: 'local', name: 'ローカルユーザー', email: '' });
-      }
-      setIsLoading(false);
-      return;
-    }
-
     // Firebase Authの状態を監視
     const unsub = onAuthStateChanged(auth, (fbUser) => {
       if (fbUser) {
@@ -71,12 +57,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      if (!firebaseEnabled) {
-        const localUser = { id: 'local', name: email.split('@')[0] || 'ローカルユーザー', email } as any;
-        localStorage.setItem('user', JSON.stringify(localUser));
-        setUser(localUser);
-        return;
-      }
       const cred = await signInWithEmailAndPassword(auth, email, password);
       const fbUser = cred.user;
       if (!fbUser.emailVerified) {
@@ -93,10 +73,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const logout = () => {
-    if (!firebaseEnabled) {
-      setUser({ id: 'local', name: 'ローカルユーザー', email: '' });
-      return;
-    }
     signOut(auth).catch(() => {});
   };
 

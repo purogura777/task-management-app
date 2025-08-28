@@ -9,31 +9,27 @@ import { notify } from './utils/notifications';
 // Firebase Console (https://console.firebase.google.com/) でプロジェクトを作成し、
 // プロジェクト設定 > 全般 > マイアプリ > Webアプリを追加して取得した設定を以下に貼り付けてください
 const firebaseConfig = {
-  apiKey: import.meta.env?.VITE_FIREBASE_API_KEY || "",
-  authDomain: import.meta.env?.VITE_FIREBASE_AUTH_DOMAIN || "",
-  projectId: import.meta.env?.VITE_FIREBASE_PROJECT_ID || "",
-  storageBucket: import.meta.env?.VITE_FIREBASE_STORAGE_BUCKET || "",
-  messagingSenderId: import.meta.env?.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
-  appId: import.meta.env?.VITE_FIREBASE_APP_ID || ""
+  apiKey: import.meta.env?.VITE_FIREBASE_API_KEY || "AIzaSyBO97MjlMFzvcDOJiCzx5fuWtrDttxqX1I",
+  authDomain: import.meta.env?.VITE_FIREBASE_AUTH_DOMAIN || "satsuki-task.firebaseapp.com",
+  projectId: import.meta.env?.VITE_FIREBASE_PROJECT_ID || "satsuki-task",
+  storageBucket: import.meta.env?.VITE_FIREBASE_STORAGE_BUCKET || "satsuki-task.firebasestorage.app",
+  messagingSenderId: import.meta.env?.VITE_FIREBASE_MESSAGING_SENDER_ID || "993443920962",
+  appId: import.meta.env?.VITE_FIREBASE_APP_ID || "1:993443920962:web:332a2b097d69bbe5b5c1db"
 };
 
 export const firebasePublicConfig = firebaseConfig;
 
-// Firebase初期化（環境変数が未設定の場合は初期化しない）
-const hasFirebase = !!firebaseConfig.apiKey;
-const app = hasFirebase ? initializeApp(firebaseConfig) : (undefined as any);
+// Firebase初期化（本番は必ず初期化される設定）
+const app = initializeApp(firebaseConfig);
 
 // 認証
-export const auth = hasFirebase ? getAuth(app) : ({} as any);
+export const auth = getAuth(app);
 
 // Firestore
-export const db = hasFirebase ? getFirestore(app) : ({} as any);
+export const db = getFirestore(app);
 
 // Storage
-export const storage = hasFirebase ? getStorage(app) : ({} as any);
-
-// 他モジュールが参照できるよう有効/無効フラグを公開
-export const firebaseEnabled = hasFirebase;
+export const storage = getStorage(app);
 
 // 通知レコードをFirestoreに追加（ログイン時のみ）
 const addCloudNotification = async (title: string, body?: string, extra?: any) => {
