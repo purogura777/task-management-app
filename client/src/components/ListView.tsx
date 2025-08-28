@@ -284,10 +284,22 @@ const ListView: React.FC = () => {
     if (!user?.id) return;
 
     try {
-      for (const taskId of selectedTasks) {
-        await deleteTask(user.id, taskId);
-      }
+      const ids = [...selectedTasks];
+      // 楽観的更新（UI即時反映）
+      setTasks(prev => prev.filter(t => !ids.includes(t.id)));
+      // ローカルストレージ側も即時反映（フィルタ切替で参照されるため）
+      try {
+        const raw = localStorage.getItem(`tasks_${user.id}`);
+        if (raw) {
+          const all = JSON.parse(raw);
+          const next = Array.isArray(all) ? all.filter((t: any) => !ids.includes(t.id)) : [];
+          localStorage.setItem(`tasks_${user.id}`, JSON.stringify(next));
+        }
+      } catch {}
+      // Firestore/ローカルへ実削除（並列）
+      await Promise.all(ids.map(id => deleteTask(user.id, id)));
       setSelectedTasks([]);
+      toast.success(`選択した${ids.length}件を削除しました`);
     } catch (error) {
       console.error('選択されたタスクの削除に失敗しました:', error);
     }
