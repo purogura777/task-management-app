@@ -32,6 +32,9 @@ export const db = hasFirebase ? getFirestore(app) : ({} as any);
 // Storage
 export const storage = hasFirebase ? getStorage(app) : ({} as any);
 
+// 他モジュールが参照できるよう有効/無効フラグを公開
+export const firebaseEnabled = hasFirebase;
+
 // 通知レコードをFirestoreに追加（ログイン時のみ）
 const addCloudNotification = async (title: string, body?: string, extra?: any) => {
   // 1) まずローカルDesktopへ即時送信（サインイン状態に依存させない）
