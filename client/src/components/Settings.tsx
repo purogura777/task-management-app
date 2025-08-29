@@ -147,29 +147,64 @@ const Settings: React.FC = () => {
 
     // 画像/動画を安全なデータURLに前処理
     const preprocess = async (f: File): Promise<{ dataUrl: string; mime: string; name: string; }> => {
-      // 動画はサムネイル（最初のフレーム）静止画に変換
+      // 動画は軽量WebM(最長2秒/最大256px/24fps)に自動変換（不可なら静止画にフォールバック）
       if (f.type.startsWith('video/')) {
         try {
+          const blobToDataURL = (b: Blob) => new Promise<string>((ok) => { const r = new FileReader(); r.onload = e => ok(e.target?.result as string); r.readAsDataURL(b); });
           const url = URL.createObjectURL(f);
           const video = document.createElement('video');
-          video.src = url;
-          video.muted = true;
+          video.src = url; video.muted = true; video.playsInline = true as any;
           await new Promise((res) => { video.onloadeddata = () => res(null as any); });
-          video.currentTime = 0.1;
+          const target = 256;
+          const vw = Math.max(video.videoWidth || target, 1);
+          const vh = Math.max(video.videoHeight || target, 1);
+          const ratio = Math.max(target / vw, target / vh);
+          const w = Math.round(vw * ratio);
+          const h = Math.round(vh * ratio);
           const canvas = document.createElement('canvas');
-          const target = 256; // アイコン用に縮小
-          const ratio = Math.max(target / (video.videoWidth || 1), target / (video.videoHeight || 1));
-          canvas.width = Math.round((video.videoWidth || target) * ratio);
-          canvas.height = Math.round((video.videoHeight || target) * ratio);
+          canvas.width = w; canvas.height = h;
           const ctx = canvas.getContext('2d')!;
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const stream: MediaStream | null = (canvas as any).captureStream ? canvas.captureStream(24) : null;
+          if (stream && (window as any).MediaRecorder) {
+            const mime = (MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : (MediaRecorder.isTypeSupported('video/webm;codecs=vp8') ? 'video/webm;codecs=vp8' : 'video/webm'));
+            const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 600_000 });
+            const chunks: BlobPart[] = [];
+            rec.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+            const drawForMs = async (ms: number) => new Promise<void>((done) => {
+              const start = performance.now();
+              const loop = () => {
+                ctx.drawImage(video, 0, 0, w, h);
+                if (performance.now() - start >= ms) return done();
+                requestAnimationFrame(loop);
+              };
+              loop();
+            });
+            await video.play().catch(()=>{});
+            rec.start();
+            await drawForMs(2000); // 2秒記録
+            rec.stop();
+            video.pause();
+            await new Promise((r) => { rec.onstop = () => r(null); });
+            const blob = new Blob(chunks, { type: mime });
+            URL.revokeObjectURL(url);
+            const dataUrl = await blobToDataURL(blob);
+            // サイズが大きすぎる場合は静止画にフォールバック
+            if (dataUrl.length > MAX_OUTPUT_BYTES * 1.37) {
+              const still = canvas.toDataURL('image/png', 0.92);
+              return { dataUrl: still, mime: 'image/png', name: (f.name.replace(/\.[^.]+$/, '') || 'thumb') + '.png' };
+            }
+            return { dataUrl, mime: 'video/webm', name: (f.name.replace(/\.[^.]+$/, '') || 'icon') + '.webm' };
+          }
+          // フォールバック: 静止画
+          video.currentTime = 0.1;
+          ctx.drawImage(video, 0, 0, w, h);
           const dataUrl = canvas.toDataURL('image/png', 0.92);
           URL.revokeObjectURL(url);
           return { dataUrl, mime: 'image/png', name: (f.name.replace(/\.[^.]+$/, '') || 'thumb') + '.png' };
         } catch {
-          // 失敗時はそのままプレビューのみ
+          // 失敗時はそのままプレビュー
           const dataUrl = await new Promise<string>((ok) => { const r = new FileReader(); r.onload = e => ok(e.target?.result as string); r.readAsDataURL(f); });
-          return { dataUrl, mime: 'image/png', name: 'thumb.png' };
+          return { dataUrl, mime: f.type.includes('webm') ? 'video/webm' : 'image/png', name: f.name || 'icon' };
         }
       }
 
@@ -745,7 +780,8 @@ const Settings: React.FC = () => {
                   variant="outlined"
                   component="span"
                   startIcon={<CloudUpload />}
-                  disabled={!isEditing}
+                  // アイコンは常に選べる（UX改善）
+                  disabled={false}
                 >
                   ファイルを選択
                 </Button>
@@ -765,7 +801,8 @@ const Settings: React.FC = () => {
               <Button
                 variant="contained"
                 onClick={handleIconUpload}
-                disabled={!selectedFile || !isEditing}
+                // 選択されていれば更新可能（編集モードに依存しない）
+                disabled={!selectedFile}
                 startIcon={<Save />}
               >
                 アイコンを更新

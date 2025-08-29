@@ -351,7 +351,8 @@ export const saveTask = async (userId: string, task: any) => {
       tasks.push(task);
     }
     localStorage.setItem(`tasks_${userId}`, JSON.stringify(tasks));
-    throw error;
+    // オフライン・権限等で失敗してもローカル保存は完了しているため、再送出しない
+    return;
   }
 };
 
@@ -437,7 +438,7 @@ export const updateTask = async (userId: string, taskId: string, updates: any) =
         notify('task_updated', { Title: 'タスクを更新', Body: updates?.title || '', TaskId: taskId });
       }
     }
-    throw error;
+    return;
   }
 };
 
@@ -508,7 +509,7 @@ export const deleteTask = async (userId: string, taskId: string) => {
       localStorage.setItem(`tasks_${userId}`, JSON.stringify(filteredTasks));
       notify('task_deleted', { Title: 'タスクを削除', Body: taskId, TaskId: taskId });
     }
-    throw error;
+    return;
   }
 };
 
