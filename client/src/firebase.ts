@@ -46,6 +46,106 @@ export const db = getFirestore(app);
 // Storage
 export const storage = getStorage(app);
 
+// ===================== マイルストーン =====================
+// 型
+export interface Milestone {
+  id: string;                 // ms_<timestamp>
+  title: string;              // マイルストーン名
+  description?: string;       // 概要
+  targetPercent?: number;     // 目標(通常100)
+  progressPercent: number;    // 現在進捗 0-100
+  createdAt: string;
+  updatedAt: string;
+  workspace?: string;
+  project?: string;
+}
+
+const MS_LOCAL_KEY = (userId: string) => `milestones_${userId}`;
+
+export const listMilestones = async (userId: string): Promise<Milestone[]> => {
+  if (!firebaseConfig.apiKey) {
+    const raw = localStorage.getItem(MS_LOCAL_KEY(userId));
+    if (!raw) return [];
+    try { const arr = JSON.parse(raw); return Array.isArray(arr) ? arr : []; } catch { return []; }
+  }
+  const snap = await getDocs(collection(db, 'users', userId, 'milestones'));
+  const list: Milestone[] = [];
+  snap.forEach(d => list.push({ id: d.id, ...(d.data() as any) }));
+  return list;
+};
+
+export const createMilestone = async (userId: string, ms: Omit<Milestone, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }): Promise<Milestone> => {
+  const id = ms.id || `ms_${Date.now()}`;
+  const payload: Milestone = {
+    id,
+    title: ms.title,
+    description: ms.description || '',
+    targetPercent: ms.targetPercent ?? 100,
+    progressPercent: Math.max(0, Math.min(100, ms.progressPercent ?? 0)),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    workspace: ms.workspace,
+    project: ms.project,
+  };
+
+  if (!firebaseConfig.apiKey) {
+    const list = (() => { try { return JSON.parse(localStorage.getItem(MS_LOCAL_KEY(userId)) || '[]'); } catch { return []; } })();
+    const idx = list.findIndex((x: any) => x.id === id);
+    if (idx >= 0) list[idx] = payload; else list.push(payload);
+    localStorage.setItem(MS_LOCAL_KEY(userId), JSON.stringify(list));
+    return payload;
+  }
+
+  const ref = doc(db, 'users', userId, 'milestones', id);
+  await setDoc(ref, sanitizeForFirestore(payload));
+  return payload;
+};
+
+export const updateMilestone = async (userId: string, id: string, updates: Partial<Milestone>): Promise<void> => {
+  // 進捗境界を保証
+  if (typeof updates.progressPercent === 'number') {
+    updates.progressPercent = Math.max(0, Math.min(100, updates.progressPercent));
+  }
+
+  if (!firebaseConfig.apiKey) {
+    const list = (() => { try { return JSON.parse(localStorage.getItem(MS_LOCAL_KEY(userId)) || '[]'); } catch { return []; } })();
+    const idx = list.findIndex((x: any) => x.id === id);
+    if (idx >= 0) {
+      list[idx] = { ...list[idx], ...updates, updatedAt: new Date().toISOString() };
+      localStorage.setItem(MS_LOCAL_KEY(userId), JSON.stringify(list));
+    }
+    return;
+  }
+
+  const ref = doc(db, 'users', userId, 'milestones', id);
+  await updateDoc(ref, sanitizeForFirestore({ ...updates, updatedAt: new Date().toISOString() }));
+};
+
+// タスク側からの進捗加算用ユーティリティ
+export const addProgressToMilestone = async (userId: string, milestoneId: string, deltaPercent: number): Promise<number | null> => {
+  if (!milestoneId || !isFinite(deltaPercent)) return null;
+
+  if (!firebaseConfig.apiKey) {
+    const list = (() => { try { return JSON.parse(localStorage.getItem(MS_LOCAL_KEY(userId)) || '[]'); } catch { return []; } })();
+    const idx = list.findIndex((x: any) => x.id === milestoneId);
+    if (idx < 0) return null;
+    const current = Number(list[idx].progressPercent || 0);
+    const next = Math.max(0, Math.min(100, current + deltaPercent));
+    list[idx] = { ...list[idx], progressPercent: next, updatedAt: new Date().toISOString() };
+    localStorage.setItem(MS_LOCAL_KEY(userId), JSON.stringify(list));
+    return next;
+  }
+
+  const ref = doc(db, 'users', userId, 'milestones', milestoneId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return null;
+  const data = snap.data() as any;
+  const current = Number(data.progressPercent || 0);
+  const next = Math.max(0, Math.min(100, current + deltaPercent));
+  await updateDoc(ref, { progressPercent: next, updatedAt: new Date().toISOString() } as any);
+  return next;
+};
+
 // 通知レコードをFirestoreに追加（ログイン時のみ）
 const addCloudNotification = async (title: string, body?: string, extra?: any) => {
   // 1) まずローカルDesktopへ即時送信（サインイン状態に依存させない）
@@ -373,6 +473,19 @@ export const updateTask = async (userId: string, taskId: string, updates: any) =
         }
       } catch {}
       SecurityLogger.getInstance().log('info', '共有プロジェクトのタスク更新', { sharedId, taskId, userId });
+      // マイルストーン進捗連動（共有プロジェクト選択中でもユーザーの個人マイルストーンへ）
+      try {
+        const milestoneId = updates?.milestoneId || updates?.milestone?.id;
+        const delta = (updates?.milestoneProgressDelta ?? updates?.progressContributionPercent) as number | undefined;
+        if (milestoneId && typeof delta === 'number' && isFinite(delta) && delta !== 0) {
+          const next = await addProgressToMilestone(userId, milestoneId, delta);
+          if (next !== null && next >= (updates?.milestoneTargetPercent ?? 100)) {
+            addCloudNotification('マイルストーン達成', `ID: ${milestoneId}`, { milestoneId, progressPercent: next });
+          }
+        }
+      } catch (e) {
+        console.warn('milestone progress update failed (shared)', e);
+      }
       return;
     }
 
@@ -388,6 +501,19 @@ export const updateTask = async (userId: string, taskId: string, updates: any) =
         localStorage.setItem(`tasks_${userId}`, JSON.stringify(updatedTasks));
         if (updates?.status !== 'done') {
           notify('task_updated', { Title: 'タスクを更新', Body: updates?.title || '', TaskId: taskId });
+        }
+        // マイルストーン進捗連動（ローカル）
+        try {
+          const milestoneId = updates?.milestoneId || updates?.milestone?.id;
+          const delta = (updates?.milestoneProgressDelta ?? updates?.progressContributionPercent) as number | undefined;
+          if (milestoneId && typeof delta === 'number' && isFinite(delta) && delta !== 0) {
+            const next = await addProgressToMilestone(userId, milestoneId, delta);
+            if (next !== null && next >= (updates?.milestoneTargetPercent ?? 100)) {
+              addCloudNotification('マイルストーン達成', `ID: ${milestoneId}`, { milestoneId, progressPercent: next });
+            }
+          }
+        } catch (e) {
+          console.warn('milestone progress update failed (local)', e);
         }
       }
       return;
@@ -423,6 +549,19 @@ export const updateTask = async (userId: string, taskId: string, updates: any) =
           project: updates?.project
         });
       }
+      // マイルストーン進捗連動（オンライン）
+      try {
+        const milestoneId = updates?.milestoneId || updates?.milestone?.id;
+        const delta = (updates?.milestoneProgressDelta ?? updates?.progressContributionPercent) as number | undefined;
+        if (milestoneId && typeof delta === 'number' && isFinite(delta) && delta !== 0) {
+          const next = await addProgressToMilestone(userId, milestoneId, delta);
+          if (next !== null && next >= (updates?.milestoneTargetPercent ?? 100)) {
+            addCloudNotification('マイルストーン達成', `ID: ${milestoneId}`, { milestoneId, progressPercent: next });
+          }
+        }
+      } catch (e) {
+        console.warn('milestone progress update failed (online)', e);
+      }
     }
   } catch (error) {
     console.error('タスクの更新に失敗しました:', error);
@@ -436,6 +575,19 @@ export const updateTask = async (userId: string, taskId: string, updates: any) =
       localStorage.setItem(`tasks_${userId}`, JSON.stringify(updatedTasks));
       if (updates?.status !== 'done') {
         notify('task_updated', { Title: 'タスクを更新', Body: updates?.title || '', TaskId: taskId });
+      }
+      // マイルストーン進捗連動（フォールバック）
+      try {
+        const milestoneId = updates?.milestoneId || updates?.milestone?.id;
+        const delta = (updates?.milestoneProgressDelta ?? updates?.progressContributionPercent) as number | undefined;
+        if (milestoneId && typeof delta === 'number' && isFinite(delta) && delta !== 0) {
+          const next = await addProgressToMilestone(userId, milestoneId, delta);
+          if (next !== null && next >= (updates?.milestoneTargetPercent ?? 100)) {
+            addCloudNotification('マイルストーン達成', `ID: ${milestoneId}`, { milestoneId, progressPercent: next });
+          }
+        }
+      } catch (e) {
+        console.warn('milestone progress update failed (fallback)', e);
       }
     }
     return;

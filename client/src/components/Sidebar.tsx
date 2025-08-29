@@ -135,6 +135,12 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onToggle }) => {
       path: '/mindmap',
       badge: null,
     },
+    {
+      text: 'マイルストーン',
+      icon: <StarIcon />,
+      path: '/milestones',
+      badge: null,
+    },
   ];
 
   // 新しいワークスペース/プロジェクトを追加

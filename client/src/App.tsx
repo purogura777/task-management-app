@@ -24,6 +24,7 @@ import Profile from './components/Profile';
 import PomodoroTimer from './components/PomodoroTimer';
 import MindMapView from './components/MindMapView';
 import TaskFormPage from './components/TaskFormPage';
+import Milestones from './components/Milestones';
 import FloatingNotification from './components/FloatingNotification';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { checkDueSoonAndNotify } from './utils/notifications';
@@ -206,6 +207,7 @@ function AppContent() {
                   <Route path="/list" element={<ListView />} />
                   <Route path="/pomodoro" element={<PomodoroTimer />} />
                   <Route path="/mindmap" element={<MindMapView />} />
+                  <Route path="/milestones" element={<Milestones />} />
                   <Route path="/task/new" element={<TaskFormPage />} />
                   <Route path="/task/edit/:id" element={<TaskFormPage />} />
                   <Route path="/settings" element={<Settings />} />

@@ -54,6 +54,7 @@ import { setupUnifiedTasksListener, saveTask, updateTask, deleteTask } from '../
 import { decryptData, encryptData, sanitizeInput } from '../utils/security';
 import TaskForm from './TaskForm';
 import TaskActions from './TaskActions';
+import MilestoneQuickActions from './MilestoneQuickActions';
 import toast from 'react-hot-toast';
 
 interface Task {
@@ -352,7 +353,8 @@ const ListView: React.FC = () => {
           <Typography variant="h4" sx={{ fontWeight: 700 }}>
             リストビュー
           </Typography>
-          <Box sx={{ display: 'flex', gap: 2 }}>
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+            <MilestoneQuickActions compact />
             {selectedTasks.length > 0 && (
               <Button
                 variant="outlined"

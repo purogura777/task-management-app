@@ -45,6 +45,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { setupUnifiedTasksListener, saveTask, updateTask, deleteTask } from '../firebase';
 import { decryptData } from '../utils/security';
 import TaskForm from './TaskForm';
+import MilestoneQuickActions from './MilestoneQuickActions';
 
 interface Task {
   id: string;
@@ -271,7 +272,8 @@ const TimelineView: React.FC = () => {
           <Typography variant="h4" sx={{ fontWeight: 700 }}>
             タイムライン
           </Typography>
-          <Box sx={{ display: 'flex', gap: 2 }}>
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+            <MilestoneQuickActions compact />
             <Button
               variant={viewMode === 'week' ? 'contained' : 'outlined'}
               onClick={() => setViewMode('week')}

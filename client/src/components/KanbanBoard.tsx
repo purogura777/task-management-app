@@ -64,6 +64,7 @@ import { setupUnifiedTasksListener, updateTask, deleteTask, saveTask } from '../
 import { decryptData } from '../utils/security';
 import TaskForm from './TaskForm';
 import TaskActions from './TaskActions';
+import MilestoneQuickActions from './MilestoneQuickActions';
 import toast from 'react-hot-toast';
 
 interface Task {
@@ -363,6 +364,7 @@ const KanbanBoard: React.FC = () => {
         </Box>
         
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <MilestoneQuickActions compact />
           <FormControlLabel
             control={
               <Switch

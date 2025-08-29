@@ -37,6 +37,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { setupUnifiedTasksListener, saveTask, updateTask, deleteTask } from '../firebase';
 import { decryptData } from '../utils/security';
 import TaskForm from './TaskForm';
+import MilestoneQuickActions from './MilestoneQuickActions';
 
 interface Task {
   id: string;
@@ -291,7 +292,9 @@ const CalendarView: React.FC = () => {
           <Typography variant="h4" sx={{ fontWeight: 700 }}>
             カレンダー
           </Typography>
-          <Button
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <MilestoneQuickActions compact />
+            <Button
             variant="contained"
             startIcon={<Add />}
             onClick={() => {
@@ -308,9 +311,10 @@ const CalendarView: React.FC = () => {
               setEditingTask(newTask);
               setTaskFormOpen(true);
             }}
-          >
-            新しいタスク
-          </Button>
+            >
+              新しいタスク
+            </Button>
+          </Box>
         </Box>
 
         <Card>
