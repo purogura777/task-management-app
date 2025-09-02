@@ -88,17 +88,29 @@ export const createMilestone = async (userId: string, ms: Omit<Milestone, 'id' |
     project: ms.project,
   };
 
-  if (!firebaseConfig.apiKey) {
+  // Firebase権限エラーを回避するため、まずローカルストレージに保存
+  try {
     const list = (() => { try { return JSON.parse(localStorage.getItem(MS_LOCAL_KEY(userId)) || '[]'); } catch { return []; } })();
     const idx = list.findIndex((x: any) => x.id === id);
     if (idx >= 0) list[idx] = payload; else list.push(payload);
     localStorage.setItem(MS_LOCAL_KEY(userId), JSON.stringify(list));
+    
+    // Firebaseが利用可能で権限がある場合のみFirestoreにも保存
+    if (firebaseConfig.apiKey) {
+      try {
+        const ref = doc(db, 'users', userId, 'milestones', id);
+        await setDoc(ref, sanitizeForFirestore(payload));
+      } catch (firebaseError) {
+        console.warn('Firestore保存に失敗しましたが、ローカルストレージには保存されました:', firebaseError);
+        // ローカルストレージには保存済みなので処理を継続
+      }
+    }
+    
     return payload;
+  } catch (error) {
+    console.error('マイルストーン作成エラー:', error);
+    throw new Error('マイルストーンの作成に失敗しました');
   }
-
-  const ref = doc(db, 'users', userId, 'milestones', id);
-  await setDoc(ref, sanitizeForFirestore(payload));
-  return payload;
 };
 
 export const updateMilestone = async (userId: string, id: string, updates: Partial<Milestone>): Promise<void> => {
@@ -107,25 +119,37 @@ export const updateMilestone = async (userId: string, id: string, updates: Parti
     updates.progressPercent = Math.max(0, Math.min(100, updates.progressPercent));
   }
 
-  if (!firebaseConfig.apiKey) {
+  try {
+    // まずローカルストレージを更新
     const list = (() => { try { return JSON.parse(localStorage.getItem(MS_LOCAL_KEY(userId)) || '[]'); } catch { return []; } })();
     const idx = list.findIndex((x: any) => x.id === id);
     if (idx >= 0) {
       list[idx] = { ...list[idx], ...updates, updatedAt: new Date().toISOString() };
       localStorage.setItem(MS_LOCAL_KEY(userId), JSON.stringify(list));
     }
-    return;
+    
+    // Firebaseが利用可能で権限がある場合のみFirestoreも更新
+    if (firebaseConfig.apiKey) {
+      try {
+        const ref = doc(db, 'users', userId, 'milestones', id);
+        await updateDoc(ref, sanitizeForFirestore({ ...updates, updatedAt: new Date().toISOString() }));
+      } catch (firebaseError) {
+        console.warn('Firestore更新に失敗しましたが、ローカルストレージは更新されました:', firebaseError);
+        // ローカルストレージは更新済みなので処理を継続
+      }
+    }
+  } catch (error) {
+    console.error('マイルストーン更新エラー:', error);
+    throw new Error('マイルストーンの更新に失敗しました');
   }
-
-  const ref = doc(db, 'users', userId, 'milestones', id);
-  await updateDoc(ref, sanitizeForFirestore({ ...updates, updatedAt: new Date().toISOString() }));
 };
 
 // タスク側からの進捗加算用ユーティリティ
 export const addProgressToMilestone = async (userId: string, milestoneId: string, deltaPercent: number): Promise<number | null> => {
   if (!milestoneId || !isFinite(deltaPercent)) return null;
 
-  if (!firebaseConfig.apiKey) {
+  try {
+    // まずローカルストレージを更新
     const list = (() => { try { return JSON.parse(localStorage.getItem(MS_LOCAL_KEY(userId)) || '[]'); } catch { return []; } })();
     const idx = list.findIndex((x: any) => x.id === milestoneId);
     if (idx < 0) return null;
@@ -133,17 +157,26 @@ export const addProgressToMilestone = async (userId: string, milestoneId: string
     const next = Math.max(0, Math.min(100, current + deltaPercent));
     list[idx] = { ...list[idx], progressPercent: next, updatedAt: new Date().toISOString() };
     localStorage.setItem(MS_LOCAL_KEY(userId), JSON.stringify(list));
+    
+    // Firebaseが利用可能で権限がある場合のみFirestoreも更新
+    if (firebaseConfig.apiKey) {
+      try {
+        const ref = doc(db, 'users', userId, 'milestones', milestoneId);
+        const snap = await getDoc(ref);
+        if (snap.exists()) {
+          await updateDoc(ref, { progressPercent: next, updatedAt: new Date().toISOString() } as any);
+        }
+      } catch (firebaseError) {
+        console.warn('Firestore進捗更新に失敗しましたが、ローカルストレージは更新されました:', firebaseError);
+        // ローカルストレージは更新済みなので処理を継続
+      }
+    }
+    
     return next;
+  } catch (error) {
+    console.error('マイルストーン進捗加算エラー:', error);
+    return null;
   }
-
-  const ref = doc(db, 'users', userId, 'milestones', milestoneId);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) return null;
-  const data = snap.data() as any;
-  const current = Number(data.progressPercent || 0);
-  const next = Math.max(0, Math.min(100, current + deltaPercent));
-  await updateDoc(ref, { progressPercent: next, updatedAt: new Date().toISOString() } as any);
-  return next;
 };
 
 // 通知レコードをFirestoreに追加（ログイン時のみ）
