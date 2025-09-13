@@ -786,7 +786,10 @@ const Dashboard: React.FC = () => {
         {/* タスク編集ダイアログ */}
         <Dialog 
           open={taskDialogOpen} 
-          onClose={() => setTaskDialogOpen(false)} 
+          onClose={() => {
+            setTaskDialogOpen(false);
+            setSelectedTask(null);
+          }} 
           maxWidth="md" 
           fullWidth
           PaperProps={{
@@ -979,7 +982,10 @@ const Dashboard: React.FC = () => {
           
           <DialogActions sx={{ p: 3, pt: 0 }}>
             <Button 
-              onClick={() => setTaskDialogOpen(false)}
+              onClick={() => {
+                setTaskDialogOpen(false);
+                setSelectedTask(null);
+              }}
               variant="outlined"
               sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
             >

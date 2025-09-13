@@ -396,7 +396,11 @@ const CalendarView: React.FC = () => {
         </Card>
 
         {/* タスク編集ダイアログ */}
-        <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
+        <Dialog open={dialogOpen} onClose={() => {
+          setDialogOpen(false);
+          setSelectedEvent(null);
+          setEditingTask(null);
+        }} maxWidth="sm" fullWidth>
           <DialogTitle>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Typography variant="h6" sx={{ fontWeight: 600 }}>
@@ -477,7 +481,11 @@ const CalendarView: React.FC = () => {
             </Box>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setDialogOpen(false)}>
+            <Button onClick={() => {
+              setDialogOpen(false);
+              setSelectedEvent(null);
+              setEditingTask(null);
+            }}>
               キャンセル
             </Button>
             <Button

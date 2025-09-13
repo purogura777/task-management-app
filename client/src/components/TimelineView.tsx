@@ -531,7 +531,11 @@ const TimelineView: React.FC = () => {
         </Card>
 
         {/* タスク編集ダイアログ */}
-        <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
+        <Dialog open={dialogOpen} onClose={() => {
+          setDialogOpen(false);
+          setSelectedTask(null);
+          setEditingTask(null);
+        }} maxWidth="sm" fullWidth>
           <DialogTitle>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Typography variant="h6" sx={{ fontWeight: 600 }}>
@@ -621,7 +625,11 @@ const TimelineView: React.FC = () => {
             </Box>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setDialogOpen(false)}>
+            <Button onClick={() => {
+              setDialogOpen(false);
+              setSelectedTask(null);
+              setEditingTask(null);
+            }}>
               キャンセル
             </Button>
             <Button

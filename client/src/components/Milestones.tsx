@@ -39,10 +39,20 @@ const Milestones: React.FC = () => {
   useEffect(() => { refresh(); }, [user?.id]);
 
   const handleCreate = async () => {
-    if (!user?.id) return;
-    if (!newTitle.trim()) { toast.error('タイトルを入力してください'); return; }
+    console.log('マイルストーン作成開始:', { user: user?.id, title: newTitle });
+    if (!user?.id) {
+      console.error('ユーザーIDがありません');
+      toast.error('ユーザー情報が見つかりません');
+      return;
+    }
+    if (!newTitle.trim()) { 
+      console.error('タイトルが空です');
+      toast.error('タイトルを入力してください'); 
+      return; 
+    }
     try {
-      await createMilestone(user.id, {
+      console.log('マイルストーン作成中...');
+      const result = await createMilestone(user.id, {
         title: newTitle.trim(),
         description: newDesc.trim(),
         targetPercent: clampPercent(newTarget || 100),
@@ -50,13 +60,14 @@ const Milestones: React.FC = () => {
         workspace: localStorage.getItem('currentWorkspace') || undefined,
         project: localStorage.getItem('currentProject') || undefined,
       });
+      console.log('マイルストーン作成成功:', result);
       toast.success('マイルストーンを作成しました');
       setCreateOpen(false);
       setNewTitle(''); setNewDesc(''); setNewTarget(100);
       refresh();
     } catch (e) {
-      console.error(e);
-      toast.error('作成に失敗しました');
+      console.error('マイルストーン作成エラー:', e);
+      toast.error('作成に失敗しました: ' + (e instanceof Error ? e.message : String(e)));
     }
   };
 

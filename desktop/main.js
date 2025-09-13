@@ -884,6 +884,13 @@ function openAuthWindow() {
 
 function startCloudListener(uid, cfg) {
   if (cloudWin) { try { cloudWin.close(); } catch {} cloudWin = null; }
+  
+  // 設定の検証
+  if (!cfg || !cfg.apiKey || !cfg.authDomain || !cfg.projectId) {
+    console.warn('Firebase設定が不完全です。通知購読をスキップします。');
+    return;
+  }
+  
   cloudWin = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: true, contextIsolation: false } });
   cloudWin.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(`
     <html><body><script>
@@ -892,14 +899,28 @@ function startCloudListener(uid, cfg) {
       const uid = ${JSON.stringify(uid)};
       const load = (u)=> new Promise(r=>{ const s=document.createElement('script'); s.src=u; s.onload=r; document.body.appendChild(s); });
       (async () => {
-        await load('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
-        await load('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js');
-        await load('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js');
-        firebase.initializeApp(cfg);
-        const db = firebase.firestore();
-        const auth = firebase.auth();
-        try { await auth.setPersistence('local'); } catch {}
         try {
+          await load('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
+          await load('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js');
+          await load('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js');
+          
+          // Firebase初期化の前に設定を検証
+          if (!cfg.apiKey || !cfg.authDomain || !cfg.projectId) {
+            throw new Error('Firebase設定が不完全です');
+          }
+          
+          firebase.initializeApp(cfg);
+          const db = firebase.firestore();
+          const auth = firebase.auth();
+          
+          // 認証の永続化を試行（失敗しても続行）
+          try { 
+            await auth.setPersistence('local'); 
+          } catch (persistError) {
+            console.warn('認証の永続化に失敗しましたが、続行します:', persistError);
+          }
+          
+          // 通知購読を開始
           db.collection('users').doc(uid).collection('notifications').orderBy('createdAt','desc').limit(20)
             .onSnapshot(snap => {
               try {
@@ -909,11 +930,18 @@ function startCloudListener(uid, cfg) {
                     ipcRenderer.send('cloud:notify', { title: d.title || '通知', body: d.body || '', status: d.status, dueDate: d.dueDate, tTitle: d.title });
                   }
                 });
-              } catch (e) { ipcRenderer.send('cloud:notify', { title: '通知の受信でエラー', body: String(e) }); }
+              } catch (e) { 
+                console.error('通知の受信でエラー:', e);
+                ipcRenderer.send('cloud:notify', { title: '通知の受信でエラー', body: String(e) }); 
+              }
             }, (err) => {
-              ipcRenderer.send('cloud:notify', { title: '通知購読に失敗', body: String(err && err.message || err) });
+              console.error('通知購読エラー:', err);
+              // エラーメッセージを改善
+              const errorMsg = err && err.message ? err.message : (err ? String(err) : '不明なエラー');
+              ipcRenderer.send('cloud:notify', { title: '通知購読に失敗', body: errorMsg });
             });
         } catch (e) {
+          console.error('通知購読の初期化エラー:', e);
           ipcRenderer.send('cloud:notify', { title: '通知購読の初期化に失敗', body: String(e) });
         }
       })();
